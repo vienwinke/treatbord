@@ -1,26 +1,92 @@
-.form { padding: 24rpx; }
+/* ═══ 发布任务 · 布局与新 token（背景 #F8FBFF / 白卡 / 主色 #3478F6） ═══ */
+page { background: #F8FBFF; }
 
-.form-item { margin-bottom: 28rpx; }
+.form {
+  padding: 24rpx 20rpx 56rpx;
+}
+
+/* 白色卡片承载表单，与全局一致 */
+.form-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx 20rpx 8rpx;
+  box-shadow: 0 6rpx 20rpx rgba(23, 32, 51, 0.05);
+}
+
+.form-item { margin-bottom: 32rpx; }
 
 .field-label {
-  font-size: 26rpx; color: #666; margin-bottom: 12rpx;
+  font-size: 26rpx;
+  color: #64748B;
+  font-weight: 500;
+  margin-bottom: 16rpx;
 }
+.req { color: #E5484D; }
 
-.input, .textarea {
-  background: #fff; border: 1rpx solid #e0e0e0; border-radius: 12rpx;
-  padding: 20rpx; width: 100%; box-sizing: border-box;
+/* 输入框 / 文本域：强制全宽，杜绝“窄输入框” */
+/* 单行输入框：固定高度 + 文字垂直居中 */
+.input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 88rpx;              /* 44px，文字随高度垂直居中 */
+  padding: 0 24rpx;
+  background: #F8FBFF;
+  border: 2rpx solid #E5EAF2;
+  border-radius: 16rpx;
   font-size: 28rpx;
+  line-height: 88rpx;
+  color: #172033;
 }
 
-.textarea { height: 180rpx; }
+/* 多行文本域：顶部对齐（符合阅读习惯） */
+.textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 200rpx;
+  padding: 22rpx 24rpx;
+  background: #F8FBFF;
+  border: 2rpx solid #E5EAF2;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #172033;
+}
+.input-ph { color: #94A3B8; }
 
+/* 报酬 / 名额 两列等宽 */
 .form-row { display: flex; gap: 20rpx; }
+.half { flex: 1; min-width: 0; }
 
-.half { flex: 1; }
-
-.picker {
-  background: #fff; border: 1rpx solid #e0e0e0; border-radius: 12rpx;
-  padding: 20rpx; color: #999; font-size: 26rpx;
+/* 截止时间：日期 + 时间 两个原生选择器 */
+.dt-row { display: flex; gap: 20rpx; }
+.dt-picker { flex: 1; min-width: 0; }
+.dt-box {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F8FBFF;
+  border: 2rpx solid #E5EAF2;
+  border-radius: 16rpx;
+  padding: 0 16rpx;
+  font-size: 26rpx;
 }
+.dt-empty { color: #94A3B8; }
+.dt-filled { color: #172033; }
 
-.submit-btn { margin-top: 40rpx; }
+/* 顶部大按钮：全宽、flex 双向居中文字 */
+.submit-btn {
+  margin: 48rpx 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  height: 96rpx;
+  font-size: 32rpx;
+  border: none;
+}
+.submit-btn::after { border: none; }
