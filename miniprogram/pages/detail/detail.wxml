@@ -1,0 +1,38 @@
+<view wx:if="{{task}}" class="wrapper">
+  <view class="header">
+    <view class="title-row">
+      <text class="title">{{task.title}}</text>
+      <text class="tag {{task.tagClass}}">{{task.statusText}}</text>
+    </view>
+    <view class="reward">¥{{task.reward}}</view>
+    <view class="meta">发布者：{{task.publisherNickname}}</view>
+  </view>
+
+  <view class="card">
+    <view class="row"><text class="label">接取进度</text><text>{{task.claimedCount}} / {{task.quota}}</text></view>
+    <view class="row"><text class="label">接取截止</text><text>{{task.claimDeadline}}</text></view>
+    <view class="row"><text class="label">完成截止</text><text>{{task.deadline}}</text></view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">任务描述</view>
+    <text class="desc">{{task.description || '暂无描述'}}</text>
+  </view>
+
+  <view class="actions">
+    <button wx:if="{{task.claimedByMe && task.status === 'IN_PROGRESS'}}"
+            class="btn-primary" bindtap="goSubmit">去提交凭证</button>
+    <button wx:elif="{{task.claimedByMe}}" class="btn-disabled" disabled>
+      已接取（{{task.claimStatusText}}）
+    </button>
+    <button wx:elif="{{!isPublisher && task.status === 'OPEN'}}"
+            class="btn-primary" bindtap="doClaim">立即接取</button>
+    <button wx:elif="{{isPublisher && (task.status === 'OPEN' || task.status === 'IN_PROGRESS')}}"
+            class="btn-danger" bindtap="doCancelTask">取消任务</button>
+  </view>
+
+  <view class="report-link" bindtap="goReport">举报该任务</view>
+</view>
+
+<view wx:elif="{{loading}}" class="empty">加载中...</view>
+<view wx:else class="empty">任务不存在或已下架</view>

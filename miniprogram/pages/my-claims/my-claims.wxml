@@ -1,0 +1,80 @@
+<view class="user-card" bindtap="{{isLogin ? '' : 'goLogin'}}">
+  <view class="avatar">{{isLogin ? (userInfo.nickname ? userInfo.nickname[0] : '?') : '?'}}</view>
+  <view class="user-info">
+    <view class="nickname">{{isLogin ? (userInfo.nickname || '微信用户') : '未登录'}}</view>
+    <view class="credit">{{isLogin ? ('信用分 ' + (userInfo.creditScore || 100)) : '点击登录，查看我的订单'}}</view>
+  </view>
+</view>
+
+<view class="toolbar" wx:if="{{isLogin}}">
+  <view class="tool" bindtap="goNotifications">
+    <text>🔔 通知</text>
+    <text wx:if="{{unreadCount > 0}}" class="badge">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
+  </view>
+  <view wx:if="{{isAdmin}}" class="tool" bindtap="goAdmin">
+    <text>🛠 管理后台</text>
+  </view>
+</view>
+
+<view wx:if="{{!isLogin}}" class="login-hint" bindtap="goLogin">
+  <text>登录后查看我的接取与发布任务 ›</text>
+</view>
+
+<view class="tabs">
+  <view class="tab {{tab === 'claims' ? 'tab-active' : ''}}" data-tab="claims" bindtap="switchTab">
+    我接取的
+  </view>
+  <view class="tab {{tab === 'published' ? 'tab-active' : ''}}" data-tab="published" bindtap="switchTab">
+    我发布的
+  </view>
+</view>
+
+<!-- 我接取的 -->
+<block wx:if="{{tab === 'claims'}}">
+  <view wx:if="{{!isLogin}}" class="empty">登录后可查看我的接取订单</view>
+  <view wx:elif="{{!claims.length && !loading}}" class="empty">还没有接取任务，去大厅逛逛吧</view>
+  <view class="card claim-item" wx:for="{{claims}}" wx:key="id">
+    <view class="claim-head">
+      <text class="claim-title">{{item.taskTitle}}</text>
+      <text class="tag {{item.tagClass}}">{{item.claimStatusText}}</text>
+    </view>
+    <view class="claim-meta">
+      <text>报酬 ¥{{item.reward}}</text>
+      <text>任务状态：{{item.taskStatusText}}</text>
+    </view>
+    <view class="claim-actions">
+      <button size="mini" bindtap="goTask" data-taskid="{{item.taskId}}">详情</button>
+      <button wx:if="{{item.status === 'CLAIMED'}}" size="mini" type="warn" plain
+              data-id="{{item.id}}" bindtap="doCancelClaim">取消</button>
+      <button wx:if="{{item.status === 'CLAIMED'}}" size="mini" type="primary"
+              data-taskid="{{item.taskId}}" bindtap="goSubmit">提交凭证</button>
+      <button wx:if="{{item.status === 'APPROVED'}}" size="mini" type="primary" plain
+              data-claimid="{{item.id}}" data-taskid="{{item.taskId}}" bindtap="goPeerReview">互评</button>
+    </view>
+  </view>
+</block>
+
+<!-- 我发布的 -->
+<block wx:if="{{tab === 'published'}}">
+  <view wx:if="{{!isLogin}}" class="empty">登录后可查看我发布的任务</view>
+  <view wx:elif="{{!myTasks.length && !loading}}" class="empty">还没发布过任务</view>
+  <view class="card claim-item" wx:for="{{myTasks}}" wx:key="id">
+    <view class="claim-head">
+      <text class="claim-title">{{item.title}}</text>
+      <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
+    </view>
+    <view class="claim-meta">
+      <text>报酬 ¥{{item.reward}}</text>
+      <text>接取 {{item.claimedCount}}/{{item.quota}}</text>
+    </view>
+    <view class="claim-actions">
+      <button size="mini" bindtap="goTask" data-taskid="{{item.id}}">详情</button>
+      <button wx:if="{{item.status === 'IN_PROGRESS'}}" size="mini" type="primary"
+              data-taskid="{{item.id}}" bindtap="goReview">审核</button>
+    </view>
+  </view>
+</block>
+
+<view wx:if="{{loading}}" class="empty">加载中...</view>
+
+<view wx:if="{{isLogin}}" class="danger-zone" bindtap="doDelete">注销账号</view>

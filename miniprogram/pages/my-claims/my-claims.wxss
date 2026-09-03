@@ -1,0 +1,71 @@
+.user-card {
+  display: flex; align-items: center; padding: 30rpx; background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+
+.avatar {
+  width: 88rpx; height: 88rpx; border-radius: 50%;
+  background: #4A90D9; color: #fff; font-size: 40rpx;
+  display: flex; align-items: center; justify-content: center;
+  margin-right: 20rpx;
+}
+
+.nickname { font-size: 32rpx; font-weight: bold; }
+
+.credit { font-size: 24rpx; color: #999; margin-top: 6rpx; }
+
+.toolbar {
+  display: flex; gap: 24rpx; align-items: center;
+  padding: 20rpx 30rpx; background: #fff; border-bottom: 1rpx solid #eee;
+}
+
+.tool { font-size: 28rpx; color: #333; display: flex; align-items: center; }
+
+.badge {
+  min-width: 32rpx; height: 32rpx; line-height: 32rpx; text-align: center;
+  background: #e74c3c; color: #fff; font-size: 20rpx;
+  border-radius: 16rpx; padding: 0 8rpx; margin-left: 8rpx;
+}
+
+.login-hint {
+  text-align: center;
+  color: #4A90D9;
+  font-size: 26rpx;
+  padding: 28rpx 0;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+
+.tabs {
+  display: flex; background: #fff; border-bottom: 1rpx solid #eee;
+}
+
+.tab {
+  flex: 1; text-align: center; padding: 24rpx 0; font-size: 28rpx; color: #666;
+  border-bottom: 4rpx solid transparent;
+}
+
+.tab-active { color: #4A90D9; font-weight: bold; border-bottom-color: #4A90D9; }
+
+.claim-item { margin-bottom: 0; }
+
+.claim-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16rpx;
+}
+
+.claim-title { font-size: 30rpx; font-weight: bold; flex: 1; }
+
+.claim-meta {
+  display: flex; justify-content: space-between; margin-top: 14rpx;
+  font-size: 24rpx; color: #888;
+}
+
+.claim-actions {
+  display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 20rpx;
+}
+
+.danger-zone {
+  text-align: center; color: #e74c3c; font-size: 26rpx;
+  padding: 40rpx 0 60rpx;
+}

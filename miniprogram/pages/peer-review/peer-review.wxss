@@ -1,0 +1,25 @@
+.row { display: flex; padding: 12rpx 0; }
+
+.row .label, .val { flex: 1; }
+
+.row .label { color: #999; width: 160rpx; flex: none; }
+
+.stars { font-size: 60rpx; letter-spacing: 8rpx; }
+
+.star { color: #ddd; }
+
+.star-on { color: #f5a623; }
+
+.score-text { font-size: 26rpx; color: #999; margin-top: 12rpx; }
+
+.sec-label { font-size: 28rpx; font-weight: bold; margin-bottom: 16rpx; }
+
+.reason {
+  width: 100%; height: 220rpx; box-sizing: border-box;
+  background: #f7f8fa; border-radius: 12rpx; padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.count { text-align: right; font-size: 22rpx; color: #bbb; margin-top: 8rpx; }
+
+.submit-btn { margin: 40rpx 24rpx; }

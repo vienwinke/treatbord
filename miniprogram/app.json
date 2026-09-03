@@ -1,0 +1,42 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/detail/detail",
+    "pages/publish/publish",
+    "pages/my-claims/my-claims",
+    "pages/submit/submit",
+    "pages/review/review",
+    "pages/notifications/notifications",
+    "pages/report/report",
+    "pages/peer-review/peer-review",
+    "pages/admin/admin",
+    "pages/login/login",
+    "pages/login-preview/login-preview"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#4A90D9",
+    "navigationBarTitleText": "任务接取",
+    "navigationBarTextStyle": "white"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4A90D9",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "任务大厅"
+      },
+      {
+        "pagePath": "pages/publish/publish",
+        "text": "发布"
+      },
+      {
+        "pagePath": "pages/my-claims/my-claims",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

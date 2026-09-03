@@ -1,0 +1,44 @@
+<view class="form">
+  <view class="form-item">
+    <view class="field-label">任务标题 *</view>
+    <input class="input" placeholder="简洁描述任务，≤50字" maxlength="50"
+           value="{{title}}" data-field="title" bindinput="onInput" />
+  </view>
+
+  <view class="form-item">
+    <view class="field-label">任务描述</view>
+    <textarea class="textarea" placeholder="补充任务要求、注意事项（≤2000字）" maxlength="2000"
+              value="{{description}}" data-field="description" bindinput="onInput" />
+  </view>
+
+  <view class="form-row">
+    <view class="form-item half">
+      <view class="field-label">报酬（元）*</view>
+      <input class="input" type="digit" placeholder="如 50" value="{{reward}}"
+             data-field="reward" bindinput="onInput" />
+    </view>
+    <view class="form-item half">
+      <view class="field-label">名额 *</view>
+      <input class="input" type="number" placeholder="1-100" value="{{quota}}"
+             data-field="quota" bindinput="onInput" />
+    </view>
+  </view>
+
+  <view class="form-item">
+    <view class="field-label">接取截止时间 *</view>
+    <view class="picker" bindtap="pickClaimDeadline">
+      {{claimDeadline || '点击选择（如 2026-09-10 18:00:00）'}}
+    </view>
+  </view>
+
+  <view class="form-item">
+    <view class="field-label">完成截止时间 *</view>
+    <view class="picker" bindtap="pickDeadline">
+      {{deadline || '点击选择（如 2026-09-12 18:00:00）'}}
+    </view>
+  </view>
+
+  <button class="btn-primary submit-btn" bindtap="doPublish" loading="{{submitting}}">
+    发布任务
+  </button>
+</view>

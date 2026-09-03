@@ -1,0 +1,39 @@
+<view wx:if="{{!claims.length && !loading}}" class="empty">该任务暂无接取记录</view>
+
+<view class="card claim-card" wx:for="{{claims}}" wx:key="id">
+  <view class="head">
+    <text class="user">{{item.userNickname || '用户' + item.userId}} 接取了</text>
+    <text class="tag {{item.tagClass}}">{{item.claimStatusText}}</text>
+  </view>
+  <view class="meta">
+    <text>报酬 ¥{{item.reward}}</text>
+    <text wx:if="{{item.submittedAt}}">提交于 {{item.submittedAt}}</text>
+  </view>
+
+  <!-- 凭证内容 -->
+  <view wx:if="{{item.submission}}" class="submission">
+    <view class="sub-title">凭证内容：</view>
+    <text class="sub-content">{{item.submission.content || '（无文字说明）'}}</text>
+    <view wx:if="{{item.submission.fileUrls.length}}" class="img-grid">
+      <image wx:for="{{item.submission.fileUrls}}" wx:for-item="url" wx:key="index"
+             class="img" src="{{url}}" mode="aspectFill" />
+    </view>
+  </view>
+  <view wx:else class="sub-empty">尚未提交凭证</view>
+
+  <!-- 审核操作 -->
+  <view wx:if="{{item.status === 'SUBMITTED'}}" class="actions">
+    <button size="mini" type="primary" data-id="{{item.id}}" data-action="approve"
+            bindtap="doReview">通过</button>
+    <button size="mini" type="warn" data-id="{{item.id}}" data-action="reject"
+            bindtap="doReview">驳回</button>
+  </view>
+  <view wx:elif="{{item.status === 'APPROVED'}}" class="actions">
+    <button size="mini" type="primary" plain
+            data-id="{{item.id}}" data-touid="{{item.userId}}" data-tonickname="{{item.userNickname}}"
+            bindtap="goPeerReview">互评该接取者</button>
+  </view>
+  <view wx:elif="{{item.reviewNote}}" class="note">审核备注：{{item.reviewNote}}</view>
+</view>
+
+<view wx:if="{{loading}}" class="empty">加载中...</view>

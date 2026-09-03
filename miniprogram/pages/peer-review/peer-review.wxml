@@ -1,0 +1,29 @@
+<view wx:if="{{blocked}}" class="empty">任务尚未完成，暂不能互评</view>
+
+<block wx:if="{{!loading && !blocked}}">
+  <view class="card">
+    <view class="row"><text class="label">任务</text><text class="val">{{taskTitle}}</text></view>
+    <view class="row"><text class="label">评价对方</text><text class="val">{{toNickname}}</text></view>
+  </view>
+
+  <view class="card">
+    <view class="sec-label">给个评分（1-5星）</view>
+    <view class="stars">
+      <text wx:for="{{stars}}" wx:key="index"
+            class="star {{item <= score ? 'star-on' : ''}}"
+            data-s="{{item}}" bindtap="setScore">★</text>
+    </view>
+    <view class="score-text">{{score ? score + ' 分' : '点击星星评分'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="sec-label">评价内容（选填，≤500字）</view>
+    <textarea class="reason" placeholder="说说这次合作的体验，靠谱/守信/效率等"
+              value="{{content}}" maxlength="500" bindinput="onContentInput" />
+    <view class="count">{{content.length}}/500</view>
+  </view>
+
+  <button class="btn-primary submit-btn" bindtap="submit" loading="{{submitting}}">提交评价</button>
+</block>
+
+<view wx:if="{{loading}}" class="empty">加载中...</view>

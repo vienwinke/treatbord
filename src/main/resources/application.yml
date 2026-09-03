@@ -1,0 +1,108 @@
+# ============================================================
+# Treatbord 应用配置（开发环境）
+# 注意：密钥类配置通过环境变量注入，禁止写死入库/入 git
+# ============================================================
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+# 上传大小限制（需覆盖默认 1MB；业务限制 5MB 由 FileValidationService 校验）
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+  application:
+    name: treatbord
+
+  # ---------- 数据源（对接 database/schema.sql 建的库） ----------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USER:app_user}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      pool-name: TreatbordHikari
+
+  # ---------- Redis（登出黑名单 / 限流 / 缓存） ----------
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  # ---------- Flyway 数据库迁移 ----------
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Flyway 用独立迁移账号（含 DDL 权限），应用账号 app_user 保持最小权限
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    user: ${MYSQL_MIGRATE_USER:db_migrate}
+    password: ${MYSQL_MIGRATE_PASSWORD:}
+    # 现有库由 database/schema.sql 手工建成，作为基线 V1
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
+
+  # ---------- Jackson ----------
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+# ---------- MyBatis-Plus ----------
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: auto
+
+# ---------- 业务配置 ----------
+treatbord:
+  jwt:
+    # 生产必须用环境变量注入 ≥32 字节随机密钥；此默认值仅限本地开发
+    secret: ${JWT_SECRET:dev-only-change-me-32bytes-secret-key-0001}
+    expire-seconds: 604800        # 7 天
+    issuer: treatbord
+  storage:
+    # MVP 本地磁盘存储
+    local-dir: ${STORAGE_LOCAL_DIR:./uploads}
+    base-url: ${STORAGE_BASE_URL:http://127.0.0.1:8080/files}
+  wx:
+    # MVP 无真实 appid 时设 false，走本地测试登录；上线须 true
+    enabled: ${WX_LOGIN_ENABLED:false}
+    appid: ${WX_APPID:}
+    secret: ${WX_SECRET:}
+    # code2session 接口
+    code2session-url: https://api.weixin.qq.com/sns/jscode2session
+  security:
+    # 内容安全检测开关（MVP 联调可关）
+    content-check-enabled: ${CONTENT_CHECK_ENABLED:false}
+
+# ---------- OpenAPI ----------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    # 直接服务页面而非 302 跳转（部分浏览器/代理环境不跟随重定向导致打不开）
+    use-root-path: true
+
+# ---------- 日志 ----------
+logging:
+  level:
+    com.treatbord: debug
+    com.baomidou.mybatisplus: warn

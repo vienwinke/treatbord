@@ -1,0 +1,13 @@
+<view class="card">
+  <view class="info">举报对象：<text class="info-strong">{{targetTitle || typeText}}</text></view>
+  <view class="tip">提交后管理员将进行审核，恶意举报将影响信用分。</view>
+</view>
+
+<view class="card">
+  <view class="label">举报原因（必填，≤500字）</view>
+  <textarea class="reason" placeholder="请描述违规内容，如广告、诈骗、虚假凭证、人身攻击等"
+            value="{{reason}}" maxlength="500" bindinput="onReasonInput" />
+  <view class="count">{{reason.length}}/500</view>
+</view>
+
+<button class="btn-primary submit-btn" bindtap="submit" loading="{{submitting}}">提交举报</button>
