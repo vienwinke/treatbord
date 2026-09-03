@@ -1,0 +1,58 @@
+.tabs {
+  display: flex; background: #fff; border-bottom: 1rpx solid #eee;
+}
+
+.tab {
+  flex: 1; text-align: center; padding: 24rpx 0; font-size: 28rpx; color: #666;
+  border-bottom: 4rpx solid transparent;
+}
+
+.tab-active { color: #4A90D9; font-weight: bold; border-bottom-color: #4A90D9; }
+
+.stat-grid {
+  display: flex; flex-wrap: wrap; padding: 20rpx;
+}
+
+.stat-card {
+  width: calc(50% - 40rpx); background: #fff; border-radius: 16rpx;
+  margin: 10rpx 20rpx; padding: 30rpx; text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.stat-warn { background: #fdeeee; }
+
+.stat-value { font-size: 44rpx; font-weight: bold; color: #4A90D9; }
+
+.stat-warn .stat-value { color: #e74c3c; }
+
+.stat-label { font-size: 24rpx; color: #888; margin-top: 8rpx; }
+
+.chips {
+  white-space: nowrap; background: #fff; padding: 16rpx 20rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.chip {
+  display: inline-block; padding: 8rpx 28rpx; margin-right: 16rpx;
+  border-radius: 32rpx; font-size: 26rpx; color: #666; background: #f0f1f5;
+}
+
+.chip-active { background: #4A90D9; color: #fff; }
+
+.head { display: flex; justify-content: space-between; align-items: center; }
+
+.type { font-size: 28rpx; font-weight: bold; }
+
+.task-title {
+  flex: 1; margin-right: 16rpx;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.reason { font-size: 26rpx; color: #555; margin-top: 12rpx; line-height: 1.5; }
+
+.meta {
+  display: flex; justify-content: space-between; margin-top: 12rpx;
+  font-size: 22rpx; color: #999;
+}
+
+.actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }

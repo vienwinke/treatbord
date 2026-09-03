@@ -1,0 +1,30 @@
+<view wx:if="{{!loading}}" class="form">
+  <view class="status-bar card">
+    <text>当前状态：</text>
+    <text class="tag {{claimTagClass}}">{{claimStatusText}}</text>
+  </view>
+
+  <view class="card">
+    <view class="field-label">完成说明（≤2000字）</view>
+    <textarea class="textarea" placeholder="描述任务完成情况、交付内容等"
+              maxlength="2000" value="{{content}}" bindinput="onInput" />
+  </view>
+
+  <view class="card">
+    <view class="field-label">凭证图片（最多3张，仅支持 jpg/png/webp）</view>
+    <view class="img-grid">
+      <view class="img-cell" wx:for="{{fileUrls}}" wx:key="index">
+        <image class="img" src="{{item}}" mode="aspectFill" />
+        <view class="img-del" data-index="{{index}}" bindtap="removeImage">×</view>
+      </view>
+      <view wx:if="{{fileUrls.length < 3}}" class="img-cell add" bindtap="chooseImage">＋</view>
+    </view>
+  </view>
+
+  <button class="btn-primary submit-btn" bindtap="doSubmit"
+          loading="{{submitting}}" disabled="{{!claimId}}">
+    提交凭证
+  </button>
+</view>
+
+<view wx:elif="{{loading}}" class="empty">加载中...</view>

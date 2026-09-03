@@ -1,0 +1,90 @@
+<view class="tabs">
+  <view class="tab {{tab === 'stats' ? 'tab-active' : ''}}" data-tab="stats" bindtap="switchTab">统计</view>
+  <view class="tab {{tab === 'reports' ? 'tab-active' : ''}}" data-tab="reports" bindtap="switchTab">举报</view>
+  <view class="tab {{tab === 'users' ? 'tab-active' : ''}}" data-tab="users" bindtap="switchTab">用户</view>
+  <view class="tab {{tab === 'tasks' ? 'tab-active' : ''}}" data-tab="tasks" bindtap="switchTab">任务</view>
+</view>
+
+<!-- 统计 -->
+<block wx:if="{{tab === 'stats'}}">
+  <view class="stat-grid">
+    <view class="stat-card {{item.warn ? 'stat-warn' : ''}}" wx:for="{{stats}}" wx:key="label">
+      <view class="stat-value">{{item.value}}</view>
+      <view class="stat-label">{{item.label}}</view>
+    </view>
+  </view>
+  <view wx:if="{{!stats && !loading}}" class="empty">暂无数据</view>
+</block>
+
+<!-- 举报 -->
+<block wx:if="{{tab === 'reports'}}">
+  <scroll-view scroll-x class="chips">
+    <view wx:for="{{reportFilters}}" wx:key="key"
+          class="chip {{reportFilter === item.key ? 'chip-active' : ''}}"
+          data-key="{{item.key}}" bindtap="setReportFilter">{{item.text}}</view>
+  </scroll-view>
+  <view wx:if="{{!reports.length && !loading}}" class="empty">暂无举报</view>
+  <view class="card" wx:for="{{reports}}" wx:key="id">
+    <view class="head">
+      <text class="type">#{{item.id}} 举报{{item.targetType}}/{{item.targetId}}</text>
+      <text class="tag {{item.statusClass === 'pending' ? 'tag-submitted' : (item.statusClass === 'handled' ? 'tag-approved' : 'tag-rejected')}}">{{item.statusText}}</text>
+    </view>
+    <view class="reason">{{item.reason}}</view>
+    <view class="meta">
+      <text>举报人 #{{item.reporterId}}</text>
+      <text>{{item.createTime}}</text>
+    </view>
+    <view wx:if="{{item.status === 0}}" class="actions">
+      <button size="mini" type="primary" data-id="{{item.id}}" bindtap="handleReport">处理</button>
+    </view>
+  </view>
+</block>
+
+<!-- 用户 -->
+<block wx:if="{{tab === 'users'}}">
+  <scroll-view scroll-x class="chips">
+    <view wx:for="{{userFilters}}" wx:key="text"
+          class="chip {{userFilter === item.key ? 'chip-active' : ''}}"
+          data-key="{{item.key == null ? '' : item.key}}" bindtap="setUserFilter">{{item.text}}</view>
+  </scroll-view>
+  <view wx:if="{{!users.length && !loading}}" class="empty">暂无用户</view>
+  <view class="card" wx:for="{{users}}" wx:key="id">
+    <view class="head">
+      <text class="type">{{item.nickname || '用户' + item.id}}</text>
+      <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
+    </view>
+    <view class="meta">
+      <text>{{item.roleText}}</text>
+      <text>信用分 {{item.creditScore}}</text>
+    </view>
+    <view wx:if="{{!item.me}}" class="actions">
+      <button size="mini" type="{{item.status === 1 ? 'primary' : 'warn'}}"
+              data-index="{{index}}" bindtap="doBan">{{item.status === 1 ? '解封' : '封禁'}}</button>
+    </view>
+  </view>
+</block>
+
+<!-- 任务 -->
+<block wx:if="{{tab === 'tasks'}}">
+  <scroll-view scroll-x class="chips">
+    <view wx:for="{{taskFilters}}" wx:key="text"
+          class="chip {{taskFilter === item.key ? 'chip-active' : ''}}"
+          data-key="{{item.key}}" bindtap="setTaskFilter">{{item.text}}</view>
+  </scroll-view>
+  <view wx:if="{{!tasks.length && !loading}}" class="empty">暂无任务</view>
+  <view class="card" wx:for="{{tasks}}" wx:key="id">
+    <view class="head">
+      <text class="type task-title">{{item.title}}</text>
+      <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
+    </view>
+    <view class="meta">
+      <text>报酬 ¥{{item.reward}}</text>
+      <text>接取 {{item.claimedCount}}/{{item.quota}}</text>
+    </view>
+    <view wx:if="{{item.status === 'OPEN' || item.status === 'IN_PROGRESS'}}" class="actions">
+      <button size="mini" type="warn" data-index="{{index}}" bindtap="doOffline">下架</button>
+    </view>
+  </view>
+</block>
+
+<view wx:if="{{loading}}" class="empty">加载中...</view>

@@ -1,0 +1,34 @@
+<view class="login-page">
+  <!-- 品牌区 -->
+  <view class="brand">
+    <view class="logo-circle">🎯</view>
+    <view class="title">Treatbord</view>
+    <view class="subtitle"></view>
+  </view>
+
+  <!-- 登录区 -->
+  <view class="panel">
+    <button class="login-btn" bindtap="doLogin" loading="{{loading}}">
+      {{loading ? '登录中...' : '微信一键登录'}}
+    </button>
+
+    <!-- 开发联调：演示账号（上线前删除此块） -->
+    <view class="demo">
+      <view class="demo-title">开发联调 · 演示账号</view>
+      <view class="demo-row">
+        <button class="demo-btn" size="mini" data-code="xiaomei" bindtap="demoLogin">小美 · 发布/管理</button>
+        <button class="demo-btn" size="mini" data-code="xiaoming" bindtap="demoLogin">小明 · 接取者</button>
+        <button class="demo-btn" size="mini" data-code="new" bindtap="demoLogin">新用户</button>
+      </view>
+    </view>
+
+    <view class="divider">— 登录即代表同意以下条款 —</view>
+    <view class="agreements">
+      <text class="agree-link" bindtap="showAgreement">《用户协议》</text>
+      <text class="agree-sep">与</text>
+      <text class="agree-link" bindtap="showPrivacy">《隐私政策》</text>
+    </view>
+  </view>
+
+  <view class="footer">v0.1.0 · 微信小程序内测版</view>
+</view>

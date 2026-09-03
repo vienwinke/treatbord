@@ -1,0 +1,33 @@
+.form { padding: 24rpx; }
+
+.status-bar { display: flex; align-items: center; gap: 10rpx; font-size: 26rpx; color: #666; }
+
+.field-label { font-size: 26rpx; color: #666; margin-bottom: 12rpx; }
+
+.textarea {
+  background: #f9f9f9; border: 1rpx solid #eee; border-radius: 12rpx;
+  padding: 20rpx; width: 100%; box-sizing: border-box;
+  font-size: 28rpx; height: 200rpx;
+}
+
+.img-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+
+.img-cell {
+  width: 160rpx; height: 160rpx; border-radius: 12rpx; overflow: hidden;
+  position: relative; background: #f0f0f0;
+}
+
+.img { width: 100%; height: 100%; }
+
+.img-del {
+  position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.6);
+  color: #fff; width: 40rpx; height: 40rpx; text-align: center;
+  line-height: 40rpx; font-size: 28rpx;
+}
+
+.add {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 60rpx; color: #aaa; border: 2rpx dashed #ccc;
+}
+
+.submit-btn { margin-top: 40rpx; }

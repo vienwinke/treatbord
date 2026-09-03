@@ -1,0 +1,128 @@
+.login-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 60rpx 60rpx;
+  background: linear-gradient(180deg, #4A90D9 0%, #6bb3f0 55%, #f5f6fa 55.5%, #f5f6fa 100%);
+}
+
+/* ---- 品牌区 ---- */
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 70rpx;
+}
+
+.logo-circle {
+  width: 148rpx;
+  height: 148rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 80rpx;
+  margin-bottom: 36rpx;
+  box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+.title {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 4rpx;
+}
+
+.subtitle {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 14rpx;
+}
+
+/* ---- 登录区 ---- */
+.panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 48rpx 40rpx 40rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.login-btn {
+  width: 100%;
+  height: 92rpx;
+  line-height: 92rpx;
+  background: linear-gradient(135deg, #4A90D9, #6bb3f0);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: bold;
+  border-radius: 46rpx;
+  border: none;
+}
+
+.login-btn::after { border: none; }
+
+.divider {
+  text-align: center;
+  font-size: 22rpx;
+  color: #c0c4cc;
+  margin: 36rpx 0 20rpx;
+}
+
+/* 开发联调：演示账号（上线前随 wxml 一起删除） */
+.demo {
+  margin-top: 28rpx;
+  padding: 16rpx;
+  background: #f7f9fc;
+  border-radius: 16rpx;
+}
+
+.demo-title {
+  text-align: center;
+  font-size: 22rpx;
+  color: #b0b4bd;
+  margin-bottom: 12rpx;
+}
+
+.demo-row {
+  display: flex;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.demo-btn {
+  font-size: 24rpx;
+  color: #4A90D9;
+  border: 1rpx solid #4A90D9 !important;
+  background: #fff;
+  border-radius: 8rpx;
+  margin: 0;
+}
+
+.agreements {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.agree-link {
+  color: #4A90D9;
+  padding: 6rpx;
+}
+
+.agree-sep { margin: 0 8rpx; }
+
+/* ---- 底部 ---- */
+.footer {
+  margin-top: auto;
+  padding-top: 60rpx;
+  font-size: 22rpx;
+  color: #b8bcc6;
+}

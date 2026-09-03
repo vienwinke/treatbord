@@ -1,0 +1,17 @@
+.info { font-size: 30rpx; color: #333; }
+
+.info-strong { font-weight: bold; }
+
+.tip { font-size: 24rpx; color: #999; margin-top: 12rpx; }
+
+.label { font-size: 28rpx; font-weight: bold; margin-bottom: 16rpx; }
+
+.reason {
+  width: 100%; height: 260rpx; box-sizing: border-box;
+  background: #f7f8fa; border-radius: 12rpx; padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.count { text-align: right; font-size: 22rpx; color: #bbb; margin-top: 8rpx; }
+
+.submit-btn { margin: 40rpx 24rpx; }

@@ -1,0 +1,26 @@
+.form { padding: 24rpx; }
+
+.form-item { margin-bottom: 28rpx; }
+
+.field-label {
+  font-size: 26rpx; color: #666; margin-bottom: 12rpx;
+}
+
+.input, .textarea {
+  background: #fff; border: 1rpx solid #e0e0e0; border-radius: 12rpx;
+  padding: 20rpx; width: 100%; box-sizing: border-box;
+  font-size: 28rpx;
+}
+
+.textarea { height: 180rpx; }
+
+.form-row { display: flex; gap: 20rpx; }
+
+.half { flex: 1; }
+
+.picker {
+  background: #fff; border: 1rpx solid #e0e0e0; border-radius: 12rpx;
+  padding: 20rpx; color: #999; font-size: 26rpx;
+}
+
+.submit-btn { margin-top: 40rpx; }

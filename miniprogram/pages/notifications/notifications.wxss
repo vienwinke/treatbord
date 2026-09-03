@@ -1,0 +1,40 @@
+.head-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 24rpx 30rpx; background: #fff; border-bottom: 1rpx solid #eee;
+}
+
+.head-title { font-size: 30rpx; font-weight: bold; }
+
+.read-all { font-size: 26rpx; color: #4A90D9; padding: 8rpx 0; }
+
+.noti-item {
+  display: flex; align-items: flex-start; position: relative;
+  margin-bottom: 0;
+}
+
+.noti-item + .noti-item { margin-top: 20rpx; }
+
+.noti-icon { font-size: 40rpx; margin-right: 20rpx; line-height: 1.2; }
+
+.noti-body { flex: 1; min-width: 0; }
+
+.noti-head { display: flex; justify-content: space-between; align-items: center; }
+
+.noti-type { font-size: 24rpx; color: #4A90D9; }
+
+.noti-time { font-size: 22rpx; color: #bbb; }
+
+.noti-title { font-size: 30rpx; font-weight: bold; margin-top: 8rpx; }
+
+.noti-content {
+  font-size: 26rpx; color: #666; margin-top: 6rpx;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; overflow: hidden;
+}
+
+.unread { background: #f0f7ff; }
+
+.dot {
+  position: absolute; right: 20rpx; top: 24rpx;
+  width: 16rpx; height: 16rpx; border-radius: 50%; background: #e74c3c;
+}

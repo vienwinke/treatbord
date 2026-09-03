@@ -1,0 +1,55 @@
+<view class="page">
+
+  <!-- ══ 个人信息区（未登录点击 → 跳登录） ══ -->
+  <view class="profile" bindtap="onTapProfile">
+    <view class="avatar">{{isLogin ? nickname0 : '?'}}</view>
+    <view class="profile-info">
+      <view class="nickname">{{isLogin ? nickname : '未登录'}}</view>
+      <view class="sub">
+        {{isLogin ? '信用分 ' + creditScore : '登录后查看我的订单'}}
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 我的订单 ══ -->
+  <view class="orders">
+    
+    <view class="orders-head">
+      <text class="orders-title">我的订单</text>
+      <text class="orders-all" bindtap="goAllOrders">全部 ›</text>
+    </view>
+
+    <view class="stat-row">
+      <view class="stat" bindtap="goOrders" data-status="PENDING">
+        <view class="stat-icon">📋</view>
+        <view class="stat-name">待执行</view>
+        <view class="stat-count">{{stats.pending}}</view>
+      </view>
+      <view class="stat" bindtap="goOrders" data-status="DOING">
+        <view class="stat-icon">⏳</view>
+        <view class="stat-name">待完成</view>
+        <view class="stat-count">{{stats.doing}}</view>
+      </view>
+      <view class="stat" bindtap="goOrders" data-status="CONFIRM">
+        <view class="stat-icon">🔍</view>
+        <view class="stat-name">待确认</view>
+        <view class="stat-count">{{stats.confirm}}</view>
+      </view>
+      <view class="stat" bindtap="goOrders" data-status="DONE">
+        <view class="stat-icon">✅</view>
+        <view class="stat-name">已完成</view>
+        <view class="stat-count">{{stats.done}}</view>
+      </view>
+      <view class="stat" bindtap="goOrders" data-status="AFTERSALE">
+        <view class="stat-icon">🛠</view>
+        <view class="stat-name">售后</view>
+        <view class="stat-count">{{stats.aftersale}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 固定底部：版本号 ══ -->
+  <view class="bottom-bar">
+    <view class="footer">v0.1.1 · 个人中心预览</view>
+  </view>
+</view>
