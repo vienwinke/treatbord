@@ -15,8 +15,8 @@
     "miniprogram": {
       "list": [
         {
-          "name": "pages/login-preview/login-preview",
-          "pathName": "pages/login-preview/login-preview",
+          "name": "pages/login-v2/login-v2",
+          "pathName": "pages/login-v2/login-v2",
           "query": "",
           "scene": null,
           "launchMode": "default"

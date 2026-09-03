@@ -22,7 +22,7 @@ module.exports = {
   // ---- 接取 §4 ----
   claimTask: (id) => req.post('/tasks/' + id + '/claim', {}, { auth: true }),
   cancelClaim: (id) => req.del('/claims/' + id, { auth: true }),
-  myClaims: (page) => req.get('/me/claims?page=' + (page || 1) + '&pageSize=10', { auth: true }),
+  myClaims: (page, pageSize) => req.get('/me/claims?page=' + (page || 1) + '&pageSize=' + (pageSize || 10), { auth: true }),
 
   // ---- 凭证 §5 ----
   submit: (claimId, data) => req.post('/claims/' + claimId + '/submit', data, { auth: true }),

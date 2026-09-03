@@ -1,0 +1,198 @@
+/* ══════════════════════════════════════════════════
+   任务大厅（pages/index） · 设计 token 对齐 login-v2
+   ─ 背景 #F8FBFF / 主色 #3478F6 / 辅助 #66B3FF
+   ─ 标题 #172033 / 正文 #64748B / 辅助 #94A3B8 / 分割线 #E5EAF2 / 白卡
+   ══════════════════════════════════════════════════ */
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 0 48rpx 60rpx;          /* 水平 24px */
+  background: #F8FBFF;
+}
+
+/* ══ 搜索栏 ══ */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 28rpx 0 24rpx;
+}
+.search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 76rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 0 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(23, 32, 51, 0.05);
+}
+.search-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 18rpx;
+  border: 4rpx solid #94A3B8;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.search-icon::after {
+  content: '';
+  position: absolute;
+  right: -9rpx;
+  bottom: -6rpx;
+  width: 12rpx;
+  height: 4rpx;
+  background: #94A3B8;
+  border-radius: 4rpx;
+  transform: rotate(45deg);
+}
+.search-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #172033;
+}
+.search-placeholder { color: #94A3B8; }
+.search-btn {
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 32rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, #3478F6 0%, #66B3FF 100%);
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 600;
+  box-shadow: 0 8rpx 20rpx rgba(52, 120, 246, 0.22);
+  flex-shrink: 0;
+}
+
+/* ══ 状态筛选 ══ */
+.status-tabs {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  height: 64rpx;
+  line-height: 64rpx;
+  background: #FFFFFF;
+  color: #64748B;
+  border: 1rpx solid #E5EAF2;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+}
+.tab-active {
+  background: rgba(52, 120, 246, 0.10);
+  color: #3478F6;
+  font-weight: 600;
+  border-color: rgba(52, 120, 246, 0.35);
+}
+
+/* ══ 空态 ══ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 140rpx 0 60rpx;
+}
+.empty-icon { font-size: 84rpx; }
+.empty-title {
+  margin-top: 26rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #64748B;
+}
+.empty-sub {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #94A3B8;
+}
+
+/* ══ 任务卡片 ══ */
+.task-list { padding-top: 8rpx; }
+.task-item {
+  background: #FFFFFF;
+  border-radius: 24rpx;            /* 12px */
+  padding: 28rpx 28rpx 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 6rpx 20rpx rgba(23, 32, 51, 0.05);
+}
+.task-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.task-title {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #172033;
+  line-height: 42rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.task-mid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22rpx;
+}
+.reward {
+  display: flex;
+  align-items: baseline;
+  color: #3478F6;
+}
+.reward-symbol { font-size: 26rpx; font-weight: 600; }
+.reward-value { font-size: 40rpx; font-weight: 700; }
+.quota {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.quota-text { font-size: 24rpx; color: #94A3B8; }
+.full-tag {
+  font-size: 20rpx;
+  color: #E5484D;
+  background: rgba(229, 72, 77, 0.10);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+.task-divider {
+  height: 1rpx;
+  background: #E5EAF2;
+  margin: 22rpx 0 18rpx;
+}
+.task-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.footer-meta { font-size: 22rpx; color: #94A3B8; }
+.footer-publisher {
+  font-size: 22rpx;
+  color: #64748B;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══ 加载 / 到底提示 ══ */
+.loading-tip {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  color: #94A3B8;
+}
+.list-end {
+  text-align: center;
+  padding: 32rpx 0 8rpx;
+  font-size: 22rpx;
+  color: #C7D2E0;
+}

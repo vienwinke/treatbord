@@ -9,7 +9,7 @@ function request(method, path, data, { auth = false } = {}) {
     if (auth) {
       const token = wx.getStorageSync('token')
       if (!token) {
-        wx.redirectTo({ url: '/pages/login/login' })
+        wx.redirectTo({ url: '/pages/login-v2/login-v2' })
         reject(new Error('未登录'))
         return
       }
@@ -28,7 +28,7 @@ function request(method, path, data, { auth = false } = {}) {
         } else if (body.code === 401) {
           // 登录失效：清 token 回登录页
           app().logout()
-          wx.redirectTo({ url: '/pages/login/login' })
+          wx.redirectTo({ url: '/pages/login-v2/login-v2' })
           reject(new Error(body.message))
         } else {
           const err = new Error(body.message || '请求失败')

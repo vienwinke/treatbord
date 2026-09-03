@@ -1,9 +1,11 @@
 const api = require('../../utils/api')
 
-const CLAIM_TEXT = {
-  CLAIMED: '待提交', SUBMITTED: '待审核', APPROVED: '已通过',
-  REJECTED: '已驳回', CANCELLED: '已取消'
+const CLAIM_STATUS = {
+  CLAIMED: '进行中', SUBMITTED: '待确认', APPROVED: '已完成',
+  REJECTED: '已关闭', CANCELLED: '已关闭'
 }
+function claimText(s) { return CLAIM_STATUS[s] || (s || '') }
+function claimTag(s) { return 'tag-' + String(s).toLowerCase() }
 
 Page({
   data: {
@@ -25,8 +27,8 @@ Page({
     api.get('/tasks/' + this.data.taskId + '/claims', { auth: true })
       .then(list => {
         const claims = list.map(c => Object.assign({}, c, {
-          claimStatusText: CLAIM_TEXT[c.status] || c.status,
-          tagClass: 'tag-' + c.status.toLowerCase()
+          claimStatusText: claimText(c.status),
+          tagClass: claimTag(c.status)
         }))
         this.setData({ claims, loading: false })
       })

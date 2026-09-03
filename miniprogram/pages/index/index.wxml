@@ -1,34 +1,61 @@
-<view class="search-bar">
-  <input class="search-input" placeholder="搜索任务关键词" value="{{keyword}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearch" />
-  <view class="search-btn" bindtap="onSearch">搜索</view>
-</view>
+<view class="page">
 
-<view class="status-tabs">
-  <view wx:for="{{statusOptions}}" wx:key="value"
-        class="tab {{currentStatus === item.value ? 'tab-active' : ''}}"
-        data-value="{{item.value}}" bindtap="onStatusTap">
-    {{item.label}}
+  <!-- ══ 搜索栏 ══ -->
+  <view class="search-bar">
+    <view class="search-input-wrap">
+      <view class="search-icon"></view>
+      <input class="search-input" placeholder="搜索任务关键词"
+             placeholder-class="search-placeholder"
+             value="{{keyword}}" bindinput="onSearchInput"
+             confirm-type="search" bindconfirm="onSearch" />
+    </view>
+    <view class="search-btn" bindtap="onSearch">搜索</view>
   </view>
-</view>
 
-<view wx:if="{{!tasks.length && !loading && !firstLoad}}" class="empty">暂无任务</view>
-
-<view class="task-list">
-  <view class="card task-item" wx:for="{{tasks}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
-    <view class="task-title">
-      <text class="title-text">{{item.title}}</text>
-      <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
-    </view>
-    <view class="task-meta">
-      <text class="reward">¥{{item.reward}}</text>
-      <text class="meta">已接 {{item.claimedCount}}/{{item.quota}}</text>
-    </view>
-    <view class="task-footer">
-      <text>接取截止 {{item.claimDeadline}}</text>
-      <text>发布者：{{item.publisherNickname}}</text>
+  <!-- ══ 状态筛选 ══ -->
+  <view class="status-tabs">
+    <view wx:for="{{statusOptions}}" wx:key="value"
+          class="tab {{currentStatus === item.value ? 'tab-active' : ''}}"
+          data-value="{{item.value}}" bindtap="onStatusTap">
+      {{item.label}}
     </view>
   </view>
-</view>
 
-<view wx:if="{{loading}}" class="empty">加载中...</view>
-<view wx:if="{{!hasMore && tasks.length && !loading}}" class="empty">没有更多了</view>
+  <!-- ══ 空态 ══ -->
+  <view wx:if="{{!tasks.length && !loading && !firstLoad}}" class="empty-state">
+    <view class="empty-icon">📭</view>
+    <view class="empty-title">{{emptyText}}</view>
+    <view class="empty-sub">换个关键字或状态试试</view>
+  </view>
+
+  <!-- ══ 任务列表 ══ -->
+  <view class="task-list">
+    <view class="task-item" wx:for="{{tasks}}" wx:key="id"
+          data-id="{{item.id}}" bindtap="goDetail">
+      <view class="task-top">
+        <text class="task-title">{{item.title}}</text>
+        <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
+      </view>
+      <view class="task-mid">
+        <view class="reward">
+          <text class="reward-symbol">¥</text>
+          <text class="reward-value">{{item.rewardText}}</text>
+        </view>
+        <view class="quota">
+          <text class="quota-text">已接 {{item.claimedCount}}/{{item.quota}}</text>
+          <text wx:if="{{item.isFull}}" class="full-tag">已满</text>
+        </view>
+      </view>
+      <view class="task-divider"></view>
+      <view class="task-footer">
+        <text class="footer-meta">接取截止 {{item.claimDeadlineText}}</text>
+        <text class="footer-publisher">{{item.publisherNickname}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 加载 / 到底提示 ══ -->
+  <view wx:if="{{!tasks.length && loading && firstLoad}}" class="loading-tip">加载中...</view>
+  <view wx:if="{{loading && tasks.length}}" class="loading-tip">加载中...</view>
+  <view wx:if="{{!hasMore && tasks.length && !loading}}" class="list-end">— 没有更多了 —</view>
+</view>
