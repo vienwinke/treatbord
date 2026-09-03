@@ -1,9 +1,11 @@
 const api = require('../../utils/api')
 
-const CLAIM_TEXT = {
-  CLAIMED: '待提交', SUBMITTED: '待审核', APPROVED: '已通过',
-  REJECTED: '已驳回', CANCELLED: '已取消'
+const CLAIM_STATUS = {
+  CLAIMED: '进行中', SUBMITTED: '待确认', APPROVED: '已完成',
+  REJECTED: '已关闭', CANCELLED: '已关闭'
 }
+function claimText(s) { return CLAIM_STATUS[s] || (s || '') }
+function claimTag(s) { return 'tag-' + String(s).toLowerCase() }
 
 Page({
   data: {
@@ -31,8 +33,8 @@ Page({
         this.setData({
           claimId: hit.id,
           claimStatus: hit.status,
-          claimStatusText: CLAIM_TEXT[hit.status] || hit.status,
-          claimTagClass: 'tag-' + hit.status.toLowerCase(),
+          claimStatusText: claimText(hit.status),
+          claimTagClass: claimTag(hit.status),
           loading: false
         })
       } else {
@@ -66,7 +68,7 @@ Page({
   uploadOne(path) {
     const token = wx.getStorageSync('token')
     if (!token) {
-      wx.redirectTo({ url: '/pages/login/login' })
+      wx.redirectTo({ url: '/pages/login-v2/login-v2' })
       return
     }
     wx.showLoading({ title: '上传中...' })

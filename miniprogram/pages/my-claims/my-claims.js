@@ -1,70 +1,114 @@
 const api = require('../../utils/api')
 
-const CLAIM_TEXT = {
-  CLAIMED: '待提交', SUBMITTED: '待审核', APPROVED: '已通过',
-  REJECTED: '已驳回', CANCELLED: '已取消'
+/* 任务态文案（我发布的/厅内任务） */
+const TASK_STATUS = {
+  OPEN: '待接取', IN_PROGRESS: '进行中', REVIEWING: '待确认',
+  SETTLED: '已完成', EXPIRED: '已关闭', CANCELLED: '已关闭'
 }
-const TASK_STATUS_TEXT = {
-  OPEN: '接取中', IN_PROGRESS: '进行中', REVIEWING: '审核中',
-  SETTLED: '已结算', EXPIRED: '已过期', CANCELLED: '已取消'
+/* 接取态文案（我接取的） */
+const CLAIM_STATUS = {
+  CLAIMED: '进行中', SUBMITTED: '待确认', APPROVED: '已完成',
+  REJECTED: '已关闭', CANCELLED: '已关闭'
+}
+function taskText(s) { return TASK_STATUS[s] || (s || '') }
+function claimText(s) { return CLAIM_STATUS[s] || (s || '') }
+function taskTag(s) { return 'tag-' + String(s).toLowerCase() }
+function claimTag(s) { return 'tag-' + String(s).toLowerCase() }
+
+/** 订单状态键 → claim 匹配规则（与顶部角标统计同一套映射） */
+function matchOrder(c, key) {
+  switch (key) {
+    case 'DOING': return c.status === 'CLAIMED'
+    case 'CONFIRM': return c.status === 'SUBMITTED'
+    case 'DONE': return c.status === 'APPROVED'
+    case 'CLOSED': return c.status === 'REJECTED' || c.status === 'CANCELLED'
+    default: return true
+  }
 }
 
 Page({
   data: {
-    tab: 'claims',           // claims | published
-    claims: [],
+    tab: 'claims',            // claims | published
+    claims: [],               // 全部接取（原始）
+    visibles: [],             // 当前筛选后的接取
     myTasks: [],
     userInfo: null,
     loading: false,
-    unreadCount: 0,
-    isAdmin: false,
-    isLogin: false
+    isLogin: false,
+    nickname: '',
+    nickname0: '?',
+    creditScore: 100,
+    orderFilter: '',          // DOING/CONFIRM/DONE/CLOSED/''=全部
+    stats: { doing: 0, confirm: 0, done: 0, closed: 0 }
   },
 
   onShow() {
-    const token = wx.getStorageSync('token')
-    const userInfo = wx.getStorageSync('userInfo')
-    const isLogin = !!token
-    this.setData({ userInfo, isLogin, isAdmin: !!(userInfo && userInfo.role === 1) })
-    if (!isLogin) {
-      // 游客模式：不弹登录，页面显示空态 + 引导（不发鉴权请求，避免 401 被弹回登录）
-      this.setData({ claims: [], myTasks: [], unreadCount: 0, loading: false })
-      return
+    this.refreshAuth()
+    if (wx.getStorageSync('token')) {
+      this.refresh()
+      this.loadStats()
+    } else {
+      // 游客模式：显示空态 + 引导（不发鉴权请求）
+      this.setData({ claims: [], visibles: [], myTasks: [], loading: false })
     }
-    this.refresh()
-    this.loadUnread()
-  },
-
-  /** 游客去登录（登录后回跳本页） */
-  goLogin() {
-    wx.navigateTo({
-      url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
-    })
   },
 
   onPullDownRefresh() {
-    this.refresh().then(() => wx.stopPullDownRefresh())
+    this.refreshAuth()
+    if (wx.getStorageSync('token')) {
+      Promise.all([this.refresh(), this.loadStats()]).then(() => wx.stopPullDownRefresh())
+    } else {
+      wx.stopPullDownRefresh()
+    }
+  },
+
+  /** 读取本地登录态 */
+  refreshAuth() {
+    const token = wx.getStorageSync('token')
+    const u = wx.getStorageSync('userInfo') || {}
+    this.setData({
+      isLogin: !!token,
+      userInfo: u,
+      nickname: u.nickname || '',
+      nickname0: (u.nickname || '?')[0],
+      creditScore: u.creditScore || 100
+    })
   },
 
   refresh() {
-    const fn = this.data.tab === 'claims' ? this.loadClaims : this.loadPublished
-    return fn()
+    // 必须用 this.method() 调用以保留 this 绑定；否则 loadClaims/loadPublished 里 this.setData 会抛错
+    if (this.data.tab === 'claims') return this.loadClaims()
+    return this.loadPublished()
   },
 
   switchTab(e) {
-    this.setData({ tab: e.currentTarget.dataset.tab })
+    this.setData({ tab: e.currentTarget.dataset.tab, orderFilter: '' })
+    this.refresh()
+  },
+
+  /** 点顶部订单状态卡：切到接取列表并按状态筛选 */
+  goOrders(e) {
+    this.setData({ tab: 'claims', orderFilter: e.currentTarget.dataset.status })
+    this.refresh()
+  },
+
+  /** 全部订单 */
+  goAllOrders() {
+    this.setData({ tab: 'claims', orderFilter: '' })
     this.refresh()
   },
 
   loadClaims() {
     this.setData({ loading: true })
     return api.myClaims(1).then(res => {
-      const claims = res.list.map(c => Object.assign({}, c, {
-        claimStatusText: CLAIM_TEXT[c.status] || c.status,
-        taskStatusText: TASK_STATUS_TEXT[c.taskStatus] || c.taskStatus,
-        tagClass: 'tag-' + c.status.toLowerCase()
+      const claims = res.list || []
+      const filtered = claims.filter(c => matchOrder(c, this.data.orderFilter))
+      const visibles = filtered.map(c => Object.assign({}, c, {
+        claimStatusText: claimText(c.status),
+        taskStatusText: taskText(c.taskStatus),
+        tagClass: claimTag(c.status)
       }))
-      this.setData({ claims, loading: false })
+      this.setData({ claims, visibles, loading: false })
     }).catch(err => {
       this.setData({ loading: false })
       wx.showToast({ title: err.message, icon: 'none' })
@@ -75,8 +119,8 @@ Page({
     this.setData({ loading: true })
     return api.myTasks(1).then(res => {
       const myTasks = res.list.map(t => Object.assign({}, t, {
-        statusText: TASK_STATUS_TEXT[t.status] || t.status,
-        tagClass: 'tag-' + t.status.toLowerCase()
+        statusText: taskText(t.status),
+        tagClass: taskTag(t.status)
       }))
       this.setData({ myTasks, loading: false })
     }).catch(err => {
@@ -85,38 +129,88 @@ Page({
     })
   },
 
-  /** 未读数（角标） */
-  loadUnread() {
-    api.unreadCount().then(res => {
-      this.setData({ unreadCount: res.total || 0 })
+  /** 统计四种状态订单数（拉最近 20 条接取分组；订单超 20 条会截断，后续可加后端聚合接口） */
+  loadStats() {
+    return api.myClaims(1, 20).then(res => {
+      const s = { doing: 0, confirm: 0, done: 0, closed: 0 }
+      ;(res.list || []).forEach(c => {
+        if (c.status === 'CLAIMED') s.doing += 1
+        else if (c.status === 'SUBMITTED') s.confirm += 1
+        else if (c.status === 'APPROVED') s.done += 1
+        else if (c.status === 'REJECTED' || c.status === 'CANCELLED') s.closed += 1
+      })
+      this.setData({ stats: s })
     }).catch(() => {})
   },
 
-  goNotifications() {
-    wx.navigateTo({ url: '/pages/notifications/notifications' })
+  /** 点击个人信息区：未登录 → 跳登录页；已登录 → 弹操作菜单 */
+  onTapProfile() {
+    if (!this.data.isLogin) {
+      wx.redirectTo({
+        url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
+      })
+      return
+    }
+    wx.showActionSheet({
+      itemList: ['切换演示账号', '退出登录', '注销账号'],
+      itemColor: '#4A90D9',
+      success: res => {
+        if (res.tapIndex === 0) this.switchAccount()
+        else if (res.tapIndex === 1) this.doLogout()
+        else if (res.tapIndex === 2) this.doDelete()
+      }
+    })
   },
 
-  goAdmin() {
-    wx.navigateTo({ url: '/pages/admin/admin' })
+  /** 切换账号 */
+  switchAccount() {
+    getApp().logout()
+    this.onShow()
+    wx.redirectTo({
+      url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
+    })
   },
 
-  /** 去互评（接取已通过后，双方互评） */
-  goPeerReview(e) {
-    const { claimid, taskid } = e.currentTarget.dataset
-    wx.navigateTo({ url: '/pages/peer-review/peer-review?claimId=' + claimid + '&taskId=' + taskid })
+  /** 退出登录 */
+  doLogout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '确定退出当前账号吗？',
+      success: res => {
+        if (!res.confirm) return
+        api.logout().catch(() => {}).finally(() => {
+          getApp().logout()
+          this.onShow()
+          wx.showToast({ title: '已退出', icon: 'success' })
+        })
+      }
+    })
   },
 
-  /** 去任务详情（接取的） */
+  /** 注销账号（合规强制：匿名化 + token 失效） */
+  doDelete() {
+    wx.showModal({
+      title: '注销账号',
+      content: '注销后个人数据将被匿名化处理，确定注销吗？',
+      confirmColor: '#e74c3c',
+      success: res => {
+        if (!res.confirm) return
+        api.deleteAccount().then(() => {
+          getApp().logout()
+          wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+        }).catch(err => wx.showToast({ title: err.message, icon: 'none' }))
+      }
+    })
+  },
+
   goTask(e) {
     wx.navigateTo({ url: '/pages/detail/detail?id=' + e.currentTarget.dataset.taskid })
   },
 
-  /** 去提交凭证 */
   goSubmit(e) {
     wx.navigateTo({ url: '/pages/submit/submit?taskId=' + e.currentTarget.dataset.taskid })
   },
 
-  /** 取消接取 */
   doCancelClaim(e) {
     const id = e.currentTarget.dataset.id
     wx.showModal({
@@ -127,29 +221,18 @@ Page({
         api.cancelClaim(id).then(() => {
           wx.showToast({ title: '已取消', icon: 'success' })
           this.loadClaims()
+          this.loadStats()
         }).catch(err => wx.showToast({ title: err.message, icon: 'none' }))
       }
     })
   },
 
-  /** 去审核页（我发布的） */
   goReview(e) {
     wx.navigateTo({ url: '/pages/review/review?taskId=' + e.currentTarget.dataset.taskid })
   },
 
-  /** 注销账号 */
-  doDelete() {
-    wx.showModal({
-      title: '注销账号',
-      content: '注销后个人数据将被匿名化处理，确定注销吗？',
-      confirmColor: '#e74c3c',
-      success: res => {
-        if (!res.confirm) return
-        api.deleteAccount().then(() => {
-          getApp().logout()
-          wx.redirectTo({ url: '/pages/login/login' })
-        }).catch(err => wx.showToast({ title: err.message, icon: 'none' }))
-      }
-    })
+  goPeerReview(e) {
+    const { claimid, taskid } = e.currentTarget.dataset
+    wx.navigateTo({ url: '/pages/peer-review/peer-review?claimId=' + claimid + '&taskId=' + taskid })
   }
 })

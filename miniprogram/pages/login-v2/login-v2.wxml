@@ -1,0 +1,74 @@
+<view class="page">
+
+  <!-- ══ Header（约 52px，iOS 导航栏） ══ -->
+  <view class="header-wrap" style="padding-top: {{statusBarHeight}}px;">
+    <view class="header">
+      <view class="nav-back" bindtap="goBack" hover-class="back-hover">
+        <view class="back-chevron"></view>
+      </view>
+      <view class="nav-title">登录</view>
+      <view class="nav-space"></view>
+    </view>
+  </view>
+
+  <!-- ══ Brand（垂直居中） ══ -->
+  <view class="hero">
+    <view class="logo">
+      <view class="logo-ring"></view>
+      <view class="logo-dot"></view>
+    </view>
+    <view class="app-name">Treatbord</view>
+    <view class="app-sub">任务服务中心</view>
+  </view>
+
+  <!-- ══ Feature Row（三列等宽） ══ -->
+  <view class="features">
+    <view class="feature">
+      <view class="feature-icon">📤</view>
+      <text class="feature-name">发布任务</text>
+      <text class="feature-desc">悬赏找人</text>
+    </view>
+    <view class="feature">
+      <view class="feature-icon">🤝</view>
+      <text class="feature-name">接取任务</text>
+      <text class="feature-desc">随时接单</text>
+    </view>
+    <view class="feature">
+      <view class="feature-icon">🛡️</view>
+      <text class="feature-name">信用保障</text>
+      <text class="feature-desc">全程护航</text>
+    </view>
+  </view>
+
+  <!-- ══ Login CTA（微信一键登录） ══ -->
+  <view class="cta-row">
+    <button class="login-btn" bindtap="doLogin" loading="{{loading}}">
+      <view class="login-inner">
+        <view class="wx-mark">
+          <view class="wx-bubble wx-bubble-a"></view>
+          <view class="wx-bubble wx-bubble-b"></view>
+        </view>
+        <text class="login-text">{{loading ? '登录中...' : '微信一键登录'}}</text>
+      </view>
+    </button>
+  </view>
+
+  <!-- ══ Login Hint ══ -->
+  <view class="login-hint">首次微信授权登录将自动创建 Treatbord 账号</view>
+
+  <!-- ══ Agreement ══ -->
+  <view class="agreement">
+    <view class="checkbox {{agreed ? 'checkbox-on' : ''}}" bindtap="toggleAgree">
+      <view class="check-mark {{agreed ? 'show' : ''}}"></view>
+    </view>
+    <view class="agree-text">
+      <text>我已阅读并同意</text>
+      <text class="agree-link" catchtap="showAgreement">《用户协议》</text>
+      <text>与</text>
+      <text class="agree-link" catchtap="showPrivacy">《隐私政策》</text>
+    </view>
+  </view>
+
+  <!-- ══ Version ══ -->
+  <view class="version">v0.2.0 · Treatbord</view>
+</view>

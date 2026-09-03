@@ -1,13 +1,15 @@
 const api = require('../../utils/api')
 
-const STATUS_TEXT = {
-  OPEN: '接取中', IN_PROGRESS: '进行中', REVIEWING: '审核中',
-  SETTLED: '已结算', EXPIRED: '已过期', CANCELLED: '已取消'
+const TASK_STATUS = {
+  OPEN: '待接取', IN_PROGRESS: '进行中', REVIEWING: '待确认',
+  SETTLED: '已完成', EXPIRED: '已关闭', CANCELLED: '已关闭'
 }
-const CLAIM_TEXT = {
-  CLAIMED: '待提交', SUBMITTED: '待审核', APPROVED: '已通过',
-  REJECTED: '已驳回', CANCELLED: '已取消'
+const CLAIM_STATUS = {
+  CLAIMED: '进行中', SUBMITTED: '待确认', APPROVED: '已完成',
+  REJECTED: '已关闭', CANCELLED: '已关闭'
 }
+function taskText(s) { return TASK_STATUS[s] || (s || '') }
+function claimText(s) { return CLAIM_STATUS[s] || (s || '') }
 
 Page({
   data: {
@@ -33,8 +35,8 @@ Page({
         const isPublisher = me && me.id === task.publisherId
         this.setData({
           task: Object.assign({}, task, {
-            statusText: STATUS_TEXT[task.status] || task.status,
-            claimStatusText: CLAIM_TEXT[task.myClaimStatus] || ''
+            statusText: taskText(task.status),
+            claimStatusText: claimText(task.myClaimStatus)
           }),
           isPublisher,
           loading: false
@@ -56,7 +58,7 @@ Page({
       success: res => {
         if (res.confirm) {
           const back = '/pages/detail/detail?id=' + this.data.id
-          wx.redirectTo({ url: '/pages/login/login?redirect=' + encodeURIComponent(back) })
+          wx.redirectTo({ url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent(back) })
         }
       }
     })

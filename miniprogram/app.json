@@ -10,18 +10,19 @@
     "pages/report/report",
     "pages/peer-review/peer-review",
     "pages/admin/admin",
-    "pages/login/login",
-    "pages/login-preview/login-preview"
+    "pages/login-preview/login-preview",
+    "pages/login-v2/login-v2"
   ],
   "window": {
-    "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#4A90D9",
+    "backgroundTextStyle": "dark",
+    "backgroundColor": "#F8FBFF",
+    "navigationBarBackgroundColor": "#F8FBFF",
     "navigationBarTitleText": "任务接取",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#4A90D9",
+    "color": "#94A3B8",
+    "selectedColor": "#3478F6",
     "list": [
       {
         "pagePath": "pages/index/index",

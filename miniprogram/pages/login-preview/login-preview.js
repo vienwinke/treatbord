@@ -66,7 +66,7 @@ Page({
   onTapProfile() {
     if (!this.data.isLogin) {
       wx.redirectTo({
-        url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/login-preview/login-preview')
+        url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/login-preview/login-preview')
       })
       return
     }
@@ -85,7 +85,7 @@ Page({
     getApp().logout()
     this.refreshAuth()
     wx.redirectTo({
-      url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/login-preview/login-preview')
+      url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/login-preview/login-preview')
     })
   },
 
@@ -123,7 +123,7 @@ Page({
       content: '该功能需要登录后使用，是否前往登录？',
       success: res => {
         if (res.confirm) {
-          wx.redirectTo({ url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/login-preview/login-preview') })
+          wx.redirectTo({ url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/login-preview/login-preview') })
         }
       }
     })

@@ -24,3 +24,5 @@ settings-mirror.xml
 
 # 临时 SQL
 .tmp_*.sql
+# 运行时文件存储（勿提交）
+uploads/

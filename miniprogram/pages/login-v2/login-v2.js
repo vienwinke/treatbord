@@ -10,17 +10,22 @@ const AGREEMENT = '欢迎使用 Treatbord 任务接取平台。\n\n' +
 const PRIVACY = '我们仅收集提供服务所必需的个人信息：\n\n' +
   '1. 微信登录标识（openid，用于账号识别，不做其他用途）；\n' +
   '2. 您主动填写的昵称、头像；发布/接取的任务内容。\n\n' +
-  '您的数据仅用于本平台功能，不向第三方出售或共享。可随时在「我的」页注销账号，' +
+  '您的数据仅用于本平台功能，不向第三方出售或共享。可随时注销账号，' +
   '注销后个人数据将被匿名化处理。\n\n' +
   '（详细条款以正式上线的完整版《隐私政策》为准）'
 
 Page({
   data: {
-    loading: false
+    loading: false,
+    agreed: true,          // 默认勾选协议，保持“一键登录”零摩擦（合规文案以上线版为准）
+    statusBarHeight: 44    // 自定义导航栏状态栏高度（px）
   },
 
   onLoad(options) {
     this.redirect = options.redirect || ''
+    // 自定义导航栏：读取状态栏高度
+    const win = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {}
+    this.setData({ statusBarHeight: win.statusBarHeight || 44 })
     // 已有登录态则直接进入（带回跳时回跳）
     if (wx.getStorageSync('token')) {
       this.afterLogin()
@@ -36,29 +41,21 @@ Page({
     }
   },
 
-  /** 用户协议 */
-  showAgreement() {
-    wx.showModal({
-      title: '用户协议',
-      content: AGREEMENT,
-      showCancel: false,
-      confirmText: '知道了',
-      confirmColor: '#4A90D9'
-    })
+  /** 返回上一页（个人中心子入口）；无上一页时回落任务大厅 */
+  goBack() {
+    if (getCurrentPages().length > 1) {
+      wx.navigateBack()
+    } else {
+      wx.switchTab({ url: '/pages/index/index' })
+    }
   },
 
-  /** 隐私政策 */
-  showPrivacy() {
-    wx.showModal({
-      title: '隐私政策',
-      content: PRIVACY,
-      showCancel: false,
-      confirmText: '知道了',
-      confirmColor: '#4A90D9'
-    })
+  /** 勾选 / 取消《用户协议》《隐私政策》 */
+  toggleAgree() {
+    this.setData({ agreed: !this.data.agreed })
   },
 
-  /** 演示账号一键登录（开发联调） */
+  /** 演示账号一键登录（开发联调保留；新版 UI 已移除演示入口） */
   demoLogin(e) {
     this.doLogin(e.currentTarget.dataset.code)
   },
@@ -66,6 +63,10 @@ Page({
   /** 微信一键登录；code 缺省时用 mock 新用户（生产改为 wx.login 真实 code） */
   async doLogin(code) {
     if (this.data.loading) return
+    if (!this.data.agreed) {
+      wx.showToast({ title: '请先阅读并同意《用户协议》与《隐私政策》', icon: 'none' })
+      return
+    }
     this.setData({ loading: true })
     wx.showLoading({ title: '登录中...' })
 
@@ -84,5 +85,27 @@ Page({
       wx.hideLoading()
       this.setData({ loading: false })
     }
+  },
+
+  /** 用户协议 */
+  showAgreement() {
+    wx.showModal({
+      title: '用户协议',
+      content: AGREEMENT,
+      showCancel: false,
+      confirmText: '知道了',
+      confirmColor: '#3478F6'
+    })
+  },
+
+  /** 隐私政策 */
+  showPrivacy() {
+    wx.showModal({
+      title: '隐私政策',
+      content: PRIVACY,
+      showCancel: false,
+      confirmText: '知道了',
+      confirmColor: '#3478F6'
+    })
   }
 })
