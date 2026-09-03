@@ -1,41 +1,55 @@
 <view class="form">
-  <view class="form-item">
-    <view class="field-label">任务标题 *</view>
-    <input class="input" placeholder="简洁描述任务，≤50字" maxlength="50"
-           value="{{title}}" data-field="title" bindinput="onInput" />
-  </view>
+  <view class="form-card">
 
-  <view class="form-item">
-    <view class="field-label">任务描述</view>
-    <textarea class="textarea" placeholder="补充任务要求、注意事项（≤2000字）" maxlength="2000"
-              value="{{description}}" data-field="description" bindinput="onInput" />
-  </view>
+    <view class="form-item">
+      <view class="field-label">任务标题 <text class="req">*</text></view>
+      <input class="input" placeholder="简洁描述任务，≤50字" placeholder-class="input-ph"
+             maxlength="50" value="{{title}}" data-field="title" bindinput="onInput" />
+    </view>
 
-  <view class="form-row">
-    <view class="form-item half">
-      <view class="field-label">报酬（元）*</view>
-      <input class="input" type="digit" placeholder="如 50" value="{{reward}}"
-             data-field="reward" bindinput="onInput" />
+    <view class="form-item">
+      <view class="field-label">任务描述</view>
+      <textarea class="textarea" placeholder="补充任务要求、注意事项（≤2000字）" placeholder-class="input-ph"
+                maxlength="2000" value="{{description}}" data-field="description" bindinput="onInput" />
     </view>
-    <view class="form-item half">
-      <view class="field-label">名额 *</view>
-      <input class="input" type="number" placeholder="1-100" value="{{quota}}"
-             data-field="quota" bindinput="onInput" />
-    </view>
-  </view>
 
-  <view class="form-item">
-    <view class="field-label">接取截止时间 *</view>
-    <view class="picker" bindtap="pickClaimDeadline">
-      {{claimDeadline || '点击选择（如 2026-09-10 18:00:00）'}}
+    <view class="form-row">
+      <view class="form-item half">
+        <view class="field-label">报酬（元）<text class="req">*</text></view>
+        <input class="input" type="digit" placeholder="如 50" placeholder-class="input-ph"
+               value="{{reward}}" data-field="reward" bindinput="onInput" />
+      </view>
+      <view class="form-item half">
+        <view class="field-label">名额 <text class="req">*</text></view>
+        <input class="input" type="number" placeholder="1-100" placeholder-class="input-ph"
+               value="{{quota}}" data-field="quota" bindinput="onInput" />
+      </view>
     </view>
-  </view>
 
-  <view class="form-item">
-    <view class="field-label">完成截止时间 *</view>
-    <view class="picker" bindtap="pickDeadline">
-      {{deadline || '点击选择（如 2026-09-12 18:00:00）'}}
+    <view class="form-item">
+      <view class="field-label">接取截止时间 <text class="req">*</text></view>
+      <view class="dt-row">
+        <picker class="dt-picker" mode="date" value="{{claimDate}}" start="{{today}}" end="{{maxDate}}" bindchange="onClaimDate">
+          <view class="dt-box {{claimDate ? 'dt-filled' : 'dt-empty'}}">{{claimDate || '选择日期'}}</view>
+        </picker>
+        <picker class="dt-picker" mode="time" value="{{claimTime}}" bindchange="onClaimTime">
+          <view class="dt-box {{claimTime ? 'dt-filled' : 'dt-empty'}}">{{claimTime || '选择时间'}}</view>
+        </picker>
+      </view>
     </view>
+
+    <view class="form-item">
+      <view class="field-label">完成截止时间 <text class="req">*</text></view>
+      <view class="dt-row">
+        <picker class="dt-picker" mode="date" value="{{deadlineDate}}" start="{{claimDate || today}}" end="{{maxDate}}" bindchange="onDeadlineDate">
+          <view class="dt-box {{deadlineDate ? 'dt-filled' : 'dt-empty'}}">{{deadlineDate || '选择日期'}}</view>
+        </picker>
+        <picker class="dt-picker" mode="time" value="{{deadlineTime}}" bindchange="onDeadlineTime">
+          <view class="dt-box {{deadlineTime ? 'dt-filled' : 'dt-empty'}}">{{deadlineTime || '选择时间'}}</view>
+        </picker>
+      </view>
+    </view>
+
   </view>
 
   <button class="btn-primary submit-btn" bindtap="doPublish" loading="{{submitting}}">

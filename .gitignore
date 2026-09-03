@@ -26,3 +26,6 @@ settings-mirror.xml
 .tmp_*.sql
 # 运行时文件存储（勿提交）
 uploads/
+
+# 本地预览产物（勿提交）
+.preview/
