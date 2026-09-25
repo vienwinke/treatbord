@@ -1,6 +1,6 @@
 # Treatbord 标准化改造意见（对标苍穹外卖）
 
-> 状态：**修改意见（待审核）**，未动手。
+> 状态：**执行中**——P0（上线必须）6 项已全部完成并通过自测（见 §3 勾选）；下一步 P1 标准化。
 > 参照基准：[苍穹外卖 sky-take-out 工程结构](https://github.com/dream-kaii/sky-take-out)（`sky-common` / `sky-pojo` / `sky-server` 三模块）与 [包结构规范](https://blog.csdn.net/2401_85190702/article/details/150149902)。
 > 关联文档：`docs/REFACTOR_PLAN.md`（A 架构重构 + B 技术栈升级）——本文件是其**标准化落地细化**，两者合并执行，见 §6。
 
@@ -73,12 +73,12 @@ sky-take-out/                     ← Maven 父工程（聚合 + 统一依赖版
 
 | # | 修改项 | 具体做法 | 工作量 |
 |---|---|---|---|
-| P0-1 | **敏感字段泄露修复** | UserVO/NotificationVO/ReportVO 隔离 + `@JsonIgnore` + 日志脱敏 | 0.5 天 |
-| P0-2 | **多环境配置** | `application.yml` + `application-dev.yml` + `application-prod.yml`；Maven profile 切换；生产密钥全环境变量 + 启动校验 | 0.5 天 |
-| P0-3 | **对象存储 OSS** | `StorageService` 新增 `AliOssStorageService`（复用接口，零业务改造）；保留本地实现用于开发 | 0.5 天 |
-| P0-4 | **密码哈希升级 BCrypt** | `spring-security-crypto` 替换自研 SHA-256；渐进式兼容迁移 | 0.5 天 |
-| P0-5 | **内容安全真实接入** | 微信 `msgSecCheck`（文本）+ `mediaCheckAsync`（图片）替换占位实现 | 1 天 |
-| P0-6 | **合规页面** | 用户协议 + 隐私政策页（小程序端）+ 微信隐私保护指引配置 | 1 天（含前端）|
+| ✅ P0-1 | **敏感字段泄露修复** | UserVO/NotificationVO/ReportVO 隔离 + `@JsonIgnore` + 日志脱敏 | 0.5 天 |
+| ✅ P0-2 | **多环境配置** | `application.yml` + `application-dev.yml` + `application-prod.yml`；Maven profile 切换；生产密钥全环境变量 + 启动校验 | 0.5 天 |
+| ✅ P0-3 | **对象存储 OSS** | `StorageService` 新增 `AliOssStorageService`（复用接口，零业务改造）；保留本地实现用于开发 | 0.5 天 |
+| ✅ P0-4 | **密码哈希升级 BCrypt** | `spring-security-crypto` 替换自研 SHA-256；渐进式兼容迁移 | 0.5 天 |
+| ✅ P0-5 | **内容安全真实接入** | 微信 `msgSecCheck`（文本）+ `mediaCheckAsync`（图片）替换占位实现 | 1 天 |
+| ✅ P0-6 | **合规页面** | 用户协议 + 隐私政策页（小程序端）+ 微信隐私保护指引配置 | 1 天（含前端）|
 
 ### 🟡 P1 — 标准化（对标苍穹，强烈建议）
 
