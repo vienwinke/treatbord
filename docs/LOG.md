@@ -169,3 +169,84 @@ mvn -s settings-mirror.xml spring-boot:run
 2. **必须勾选「详情→本地设置→不校验合法域名」**（后端是 http://127.0.0.1:8080）
 3. 点编译 / 预览
 4. 底层用的是 JS 引擎：iOS=JavaScriptCore、Android=V8、模拟器=Chromium
+
+---
+
+# 📅 2026-09-25 工作记录：P0 上线必备改造
+
+## 一、背景
+
+会话开始时对项目做全面盘点，发现项目较上次记录已大幅演进：
+- 新增账密登录（AccountLoginRequest/PasswordEncoder/V4 迁移）
+- Redis 固定窗口限流（RateLimitService/Interceptor）
+- 全链路 traceId（TraceContext/TraceIdFilter）
+- actuator 健康检查、16 个小程序页面（含 admin/notifications/peer-review/report/credentials/order-list）
+
+盘点同时发现 **18 个已修改 + 11 个未跟踪文件未提交**，故先固化基线（commit `1284c29`）。
+
+## 二、解决的问题（P0 六项，全部完成并自测）
+
+| 项 | 问题 | 解决 | 验证 |
+|---|---|---|---|
+| P0-1 | 管理端接口**明文泄露** openid + passwordHash | UserVO/NotificationVO/ReportVO 隔离 + User 加 @JsonIgnore + MaskUtil 日志脱敏 | 实测三接口敏感字段归零 |
+| P0-2 | 单文件配置、生产可用默认密钥 | 拆分 application-dev/prod.yml + StartupValidator（prod 缺密钥拒启） | prod 启动被拒并列出 9 项缺失 |
+| P0-3 | 仅本地磁盘存储 | 新增 AliOssStorageService（条件装配，local 为默认） | dev 回归通过（OSS 待真实凭证） |
+| P0-4 | 自研 SHA-256 密码哈希强度不足 | PasswordEncoder 升级 BCrypt（预哈希+pepper），兼容旧格式并**登录时自动升级** | 三项测试：新密码 $2a$ / 账密登录 / 旧哈希自动迁移 |
+| P0-5 | 内容安全为占位实现 | 接入微信 msgSecCheck + mediaCheckAsync（含 fail-open 降级）+ WxAccessTokenService | dev 跳过、回归正常（待真实凭证验证） |
+| P0-6 | 无用户协议/隐私政策页 | 新增两页面 + 登录页与「我的」页入口 | JS 语法 + app.json 校验通过 |
+
+附带：`start-dev.sh` 增加端口/依赖/env 三项前置检查；新增 `docs/RUNBOOK.md` 启动手册；`.env.example` 补全生产必需项。
+
+## 三、发现的问题
+
+### 安全类
+1. **P0 漏洞**：`GET /api/admin/users` 实测返回 `openid` 与 `passwordHash`（用户 wangmin/yw978712 哈希可见）——根因是 Controller 直接返回实体
+2. **内容安全缺口**：发布任务时标题/描述**从未调用检测**（AGENTS §9 有要求），本次补齐
+3. **日志泄露**：`WxAuthService` 打印完整 openid；微信失败响应整体打日志（可能含 session_key）
+4. 密码哈希为自研 SHA-256（无慢哈希，GPU 暴力破解成本低）
+
+### 架构/工程类
+5. 模块耦合：task 模块被跨模块 import **64 处**（直接引用 Mapper/Entity）
+6. 事务边界不完整：全项目仅 **7 处** `@Transactional`
+7. Entity 直接出 Controller：3 处（本次修复 3 个）
+8. **零测试代码**（`src/test` 为空）
+9. API 文档无注解（Swagger 标题为 `list`/`detail` 等方法名）
+10. 前端 3 套登录相关页（login 已删 / login-preview / login-v2）
+11. 工作区含无关文件 `build_notebooks.py`（numpy 教程脚本）
+
+### 运行期踩坑（已修复）
+12. `app_config` 种子值 `content.security.enabled=true` 导致 **dev 也调用微信** → 500；改为开关读 yml（环境决定）
+13. `BusinessException` 被笼统当作"违规拦截"上抛 → 500；改为仅 `CONTENT_ILLEGAL` 上抛
+14. 端口 8080 被已有实例占用 → 新实例启动失败（现象像"后端挂了"）；启动脚本已加检测
+15. `pkill -f "spring-boot:run"` 会匹配到自身命令行（操作坑）；改用 `[s]pring-...` 且不与启动同命令执行
+
+## 四、当前状态
+
+- 提交：`1284c29`（基线）→ `3d7b345`（P0 代码）→ `b1f5ba2`（文档）
+- 规模：后端 104 个 Java 文件 / 32 个接口；小程序 16 个页面
+- 服务：MySQL 3306、Redis 6379 运行中；8080 由用户自行启动
+
+## 五、遗留问题（下一步）
+
+### P1 标准化（对标苍穹外卖）
+- [ ] Maven 三模块拆分（common/pojo/server）
+- [ ] 包结构规范化（constant/context/enumeration/exception/json/properties/result/utils）
+- [ ] 常量类体系（消除硬编码提示语）
+- [ ] API 文档注解 + Knife4j 中文文档
+- [ ] 业务缓存（任务列表/详情 Redis）
+- [ ] 测试体系（JUnit5 + ArchUnit + Testcontainers）
+- [ ] 前端清理（冗余页 + 统一规范）
+
+### P2 增强
+- [ ] Druid + SQL 监控 / MapStruct / Redisson 分布式锁 / Micrometer 监控 / CI-CD
+
+### 需外部凭证（代码就绪）
+- [ ] OSS 端到端（阿里云 AK + Bucket）
+- [ ] 内容安全端到端（微信 AppID/Secret）
+- [ ] 真实微信登录（替换 mock）
+
+### 上线硬门槛（非技术为主）
+- [ ] **类目资质确认**（任务/兼职类可能需人力资源资质）
+- [ ] 微信隐私保护指引配置（与 privacy 页面逐项对齐）
+- [ ] HTTPS + 域名备案 + request 合法域名
+- [ ] 压测（并发接取）、数据库备份与恢复演练、日志采集策略
