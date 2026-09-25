@@ -34,7 +34,9 @@ public class WxAuthService {
         if (!wxProperties.isEnabled()) {
             // 本地测试模式：测试 openid 必须可复现（同 code 同 openid），方便重复登录
             String openid = TEST_OPENID_PREFIX + code;
-            log.info("[WX-MOCK] code={} -> openid={}", code, openid);
+            // 日志脱敏（docs/SECURITY_REVIEW.md D4）
+            log.info("[WX-MOCK] code={} -> openid={}", code,
+                    com.treatbord.common.MaskUtil.maskOpenid(openid));
             return openid;
         }
 
@@ -55,7 +57,9 @@ public class WxAuthService {
             throw new BusinessException(ResultCode.WX_LOGIN_FAILED);
         }
         if (resp.containsKey("errcode") && !"0".equals(String.valueOf(resp.get("errcode")))) {
-            log.warn("code2session 失败: {}", resp);
+            // 只记录错误码与描述，避免打印完整响应（可能含 session_key 等敏感信息）
+            log.warn("code2session 失败: errcode={} errmsg={}",
+                    resp.get("errcode"), resp.get("errmsg"));
             throw new BusinessException(ResultCode.WX_LOGIN_FAILED);
         }
         String openid = (String) resp.get("openid");

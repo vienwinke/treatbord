@@ -2,6 +2,7 @@ package com.treatbord.module.file.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,11 +15,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
- * 本地磁盘存储实现（MVP，零依赖）。
+ * 本地磁盘存储实现（开发环境默认）。
  * 目录：{upload-dir}/biz/{type}/{yyyyMM}/{uuid}.ext
+ * 生产切换 OSS：设置 treatbord.storage.type=oss（见 AliOssStorageService）。
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "treatbord.storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalStorageService implements StorageService {
 
     @Value("${treatbord.storage.local-dir:./uploads}")

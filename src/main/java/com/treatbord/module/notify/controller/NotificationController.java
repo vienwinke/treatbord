@@ -23,9 +23,9 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    /** 8.1 通知列表 */
+    /** 8.1 通知列表（返回 VO） */
     @GetMapping
-    public Result<PageResult<Notification>> list(
+    public Result<PageResult<com.treatbord.module.notify.dto.NotificationVO>> list(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) Integer isRead) {

@@ -63,11 +63,8 @@ public class SubmissionService {
             throw new BusinessException(ResultCode.CLAIM_NOT_SUBMITTABLE, "当前状态不可提交凭证");
         }
 
-        // 3. 内容安全（文本 + 图片）
-        contentSecurityService.checkText(req.getContent(), "submission");
-        if (req.getFileIds() != null) {
-            req.getFileIds().forEach(contentSecurityService::checkImage);
-        }
+        // 3. 内容安全（文本；图片已在上传时通过 mediaCheckAsync 异步检测）
+        contentSecurityService.checkText(req.getContent(), "submission", userId);
 
         // 4. 覆盖提交：复用最新一条有效提交，否则新建
         TaskSubmission latest = submissionMapper.selectLatestByClaimId(claimId);

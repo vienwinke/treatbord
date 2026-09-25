@@ -40,16 +40,21 @@ public class NotificationService {
     }
 
     /**
-     * 通知列表（分页，可筛选已读状态）。
+     * 通知列表（分页，可筛选已读状态）。对外返回 NotificationVO。
      */
-    public PageResult<Notification> list(Long userId, Integer isRead, long page, long pageSize) {
+    public PageResult<com.treatbord.module.notify.dto.NotificationVO> list(
+            Long userId, Integer isRead, long page, long pageSize) {
         Page<Notification> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<Notification> qw = new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
                 .eq(isRead != null, Notification::getIsRead, isRead)
                 .orderByDesc(Notification::getCreateTime);
         Page<Notification> result = notificationMapper.selectPage(p, qw);
-        return PageResult.of(result.getRecords(), result.getTotal(), page, pageSize);
+        java.util.List<com.treatbord.module.notify.dto.NotificationVO> list =
+                result.getRecords().stream()
+                        .map(com.treatbord.module.notify.dto.NotificationVO::from)
+                        .collect(java.util.stream.Collectors.toList());
+        return PageResult.of(list, result.getTotal(), page, pageSize);
     }
 
     /**

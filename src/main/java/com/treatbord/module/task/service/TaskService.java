@@ -40,13 +40,18 @@ public class TaskService {
     private final com.treatbord.module.submission.mapper.TaskSubmissionMapper submissionMapper;
     private final UserService userService;
     private final AuditService auditService;
+    private final com.treatbord.module.security.service.ContentSecurityService contentSecurityService;
 
     public static final String STATUS_OPEN = "OPEN";
 
     /**
-     * 发布任务：校验截止时间合理性，入库 OPEN。
+     * 发布任务：内容安全检测 + 截止时间校验，入库 OPEN。
      */
     public Long create(TaskCreateRequest req, Long publisherId, HttpServletRequest httpReq) {
+        // 内容安全：标题 + 描述（docs/SECURITY_REVIEW.md §2.3）
+        contentSecurityService.checkText(req.getTitle(), "task-title", publisherId);
+        contentSecurityService.checkText(req.getDescription(), "task-desc", publisherId);
+
         // 截止时间合法性
         if (!req.getClaimDeadline().isBefore(req.getDeadline())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "完成截止必须晚于接取截止");

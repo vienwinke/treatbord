@@ -75,6 +75,16 @@
       <text class="func-name">帮助与反馈</text>
       <text class="func-arrow">›</text>
     </view>
+    <view class="func-item" bindtap="goAgreement">
+      <view class="func-ic">📄</view>
+      <text class="func-name">用户协议</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goPrivacy">
+      <view class="func-ic">🔒</view>
+      <text class="func-name">隐私政策</text>
+      <text class="func-arrow">›</text>
+    </view>
     <view class="func-item" bindtap="goCredentials">
       <view class="func-ic">🔐</view>
       <text class="func-name">设置账号密码</text>

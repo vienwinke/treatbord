@@ -1,0 +1,71 @@
+# ============================================================
+# 生产环境配置（prod）
+# ⚠️ 本文件不含任何默认密钥：缺失必需环境变量时由 StartupValidator 拒绝启动
+# 必需变量：MYSQL_HOST/USER/PASSWORD、MYSQL_MIGRATE_USER/PASSWORD、
+#          REDIS_HOST、JWT_SECRET(≥32字节)、PASSWORD_PEPPER、WX_APPID/WX_SECRET
+# 使用 OSS 时另需：OSS_ENDPOINT/OSS_BUCKET/OSS_ACCESS_KEY_ID/OSS_ACCESS_KEY_SECRET
+# ============================================================
+spring:
+  # ---------- 数据源（全部环境变量，无默认值） ----------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 5000
+      pool-name: TreatbordHikari
+
+  # ---------- Redis ----------
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+  # ---------- Flyway ----------
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true
+    user: ${MYSQL_MIGRATE_USER}
+    password: ${MYSQL_MIGRATE_PASSWORD}
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
+    clean-disabled: true            # 生产禁止 clean
+
+treatbord:
+  jwt:
+    secret: ${JWT_SECRET:}          # 空默认 -> StartupValidator 校验并给出友好提示
+  storage:
+    type: ${STORAGE_TYPE:oss}       # 生产默认 OSS
+    base-url: ${STORAGE_BASE_URL:}
+    oss:
+      endpoint: ${OSS_ENDPOINT:}
+      bucket: ${OSS_BUCKET:}
+      access-key-id: ${OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+  wx:
+    enabled: true                   # 生产必须走真实微信登录
+    appid: ${WX_APPID:}
+    secret: ${WX_SECRET:}
+    code2session-url: https://api.weixin.qq.com/sns/jscode2session
+  security:
+    password-pepper: ${PASSWORD_PEPPER:}
+    content-check-enabled: true     # 生产强制开启内容安全
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health             # 生产只暴露 health
+
+logging:
+  level:
+    root: info
+    com.treatbord: info
+    com.baomidou.mybatisplus: warn

@@ -43,7 +43,7 @@ public class AdminController {
 
     /** 举报列表 */
     @GetMapping("/reports")
-    public Result<PageResult<Report>> reports(
+    public Result<PageResult<com.treatbord.module.report.dto.ReportVO>> reports(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) Integer status) {
@@ -59,9 +59,9 @@ public class AdminController {
         return Result.ok();
     }
 
-    /** 用户列表 */
+    /** 用户列表（返回 UserVO，杜绝敏感字段外泄） */
     @GetMapping("/users")
-    public Result<PageResult<User>> users(
+    public Result<PageResult<com.treatbord.module.user.dto.UserVO>> users(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) Integer status) {
