@@ -54,8 +54,8 @@ public class FileService {
         record.setSecStatus(FileRecord.SEC_CHECK_PENDING); // 待异步检测
         fileRecordMapper.insert(record);
 
-        // 4. 内容安全异步检测（占位；真实 mediaCheckAsync 回调回填）
-        contentSecurityService.checkImage(record.getId());
+        // 4. 内容安全异步检测（mediaCheckAsync；本地存储无公网地址时自动跳过）
+        contentSecurityService.checkImage(record.getId(), record.getUrl(), uploaderId);
 
         auditService.record(uploaderId, "UPLOAD_FILE", "file", record.getId(),
                 "上传文件 size=" + file.getSize() + " type=" + bizType, httpReq);

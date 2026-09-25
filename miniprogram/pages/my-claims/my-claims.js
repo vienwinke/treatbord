@@ -210,6 +210,14 @@ Page({
       confirmText: '知道了'
     })
   },
+  /** 用户协议（合规页面） */
+  goAgreement() {
+    wx.navigateTo({ url: '/pages/agreement/agreement' })
+  },
+  /** 隐私政策（合规页面） */
+  goPrivacy() {
+    wx.navigateTo({ url: '/pages/privacy/privacy' })
+  },
   goCredentials() {
     if (!this.requireLogin()) return
     wx.navigateTo({ url: '/pages/credentials/credentials' })

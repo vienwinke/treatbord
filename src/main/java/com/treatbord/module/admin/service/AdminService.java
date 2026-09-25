@@ -7,6 +7,7 @@ import com.treatbord.common.PageResult;
 import com.treatbord.common.ResultCode;
 import com.treatbord.module.audit.service.AuditService;
 import com.treatbord.module.notify.service.NotificationService;
+import com.treatbord.module.report.dto.ReportVO;
 import com.treatbord.module.report.entity.Report;
 import com.treatbord.module.report.mapper.ReportMapper;
 import com.treatbord.module.settlement.mapper.SettlementMapper;
@@ -16,6 +17,7 @@ import com.treatbord.module.task.enums.TaskStatus;
 import com.treatbord.module.task.mapper.TaskClaimMapper;
 import com.treatbord.module.task.mapper.TaskMapper;
 import com.treatbord.module.task.service.TaskService;
+import com.treatbord.module.user.dto.UserVO;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.mapper.UserMapper;
 import com.treatbord.security.TokenBlacklistService;
@@ -75,16 +77,19 @@ public class AdminService {
     }
 
     /**
-     * 举报列表（status 筛选）。
+     * 举报列表（status 筛选）。对外返回 ReportVO。
      */
-    public PageResult<Report> listReports(Integer status, long page, long pageSize) {
+    public PageResult<ReportVO> listReports(Integer status, long page, long pageSize) {
         Page<Report> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<Report> qw = new LambdaQueryWrapper<Report>()
                 .eq(status != null, Report::getStatus, status)
                 .orderByAsc(Report::getStatus)
                 .orderByDesc(Report::getCreateTime);
         Page<Report> result = reportMapper.selectPage(p, qw);
-        return PageResult.of(result.getRecords(), result.getTotal(), page, pageSize);
+        java.util.List<ReportVO> list = result.getRecords().stream()
+                .map(ReportVO::from)
+                .collect(java.util.stream.Collectors.toList());
+        return PageResult.of(list, result.getTotal(), page, pageSize);
     }
 
     /**
@@ -150,15 +155,18 @@ public class AdminService {
     }
 
     /**
-     * 用户列表（status 筛选）。
+     * 用户列表（status 筛选）。对外返回 UserVO，杜绝 openid/passwordHash 外泄。
      */
-    public PageResult<User> listUsers(Integer status, long page, long pageSize) {
+    public PageResult<UserVO> listUsers(Integer status, long page, long pageSize) {
         Page<User> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<User> qw = new LambdaQueryWrapper<User>()
                 .eq(status != null, User::getStatus, status)
                 .orderByDesc(User::getCreateTime);
         Page<User> result = userMapper.selectPage(p, qw);
-        return PageResult.of(result.getRecords(), result.getTotal(), page, pageSize);
+        java.util.List<UserVO> list = result.getRecords().stream()
+                .map(UserVO::from)
+                .collect(java.util.stream.Collectors.toList());
+        return PageResult.of(list, result.getTotal(), page, pageSize);
     }
 
     /**

@@ -1,18 +1,6 @@
 const api = require('../../utils/api')
 
-// 协议占位文案（MVP；上线前需按平台模板补全文案，见 docs/SECURITY_REVIEW.md §2）
-const AGREEMENT = '欢迎使用 Treatbord 任务接取平台。\n\n' +
-  '1. 本平台仅提供任务发布与接取的信息撮合服务，交易双方自行确认协作方式与结算。\n' +
-  '2. 请勿发布违法违规、诈骗、赌博类任务；接取者需如实提交完成凭证。\n' +
-  '3. 平台对违规内容可采取下架、封禁等处置，并保留账号注销（含数据匿名化）权利。\n\n' +
-  '（详细条款以正式上线的完整版《用户协议》为准）'
-
-const PRIVACY = '我们仅收集提供服务所必需的个人信息：\n\n' +
-  '1. 微信登录标识（openid，用于账号识别，不做其他用途）；\n' +
-  '2. 您主动填写的昵称、头像；发布/接取的任务内容。\n\n' +
-  '您的数据仅用于本平台功能，不向第三方出售或共享。可随时注销账号，' +
-  '注销后个人数据将被匿名化处理。\n\n' +
-  '（详细条款以正式上线的完整版《隐私政策》为准）'
+// 协议/隐私政策已移至独立合规页面：pages/agreement、pages/privacy
 
 Page({
   data: {
@@ -117,25 +105,13 @@ Page({
     }
   },
 
-  /** 用户协议 */
+  /** 用户协议（跳转完整页面） */
   showAgreement() {
-    wx.showModal({
-      title: '用户协议',
-      content: AGREEMENT,
-      showCancel: false,
-      confirmText: '知道了',
-      confirmColor: '#3478F6'
-    })
+    wx.navigateTo({ url: '/pages/agreement/agreement' })
   },
 
-  /** 隐私政策 */
+  /** 隐私政策（跳转完整页面） */
   showPrivacy() {
-    wx.showModal({
-      title: '隐私政策',
-      content: PRIVACY,
-      showCancel: false,
-      confirmText: '知道了',
-      confirmColor: '#3478F6'
-    })
+    wx.navigateTo({ url: '/pages/privacy/privacy' })
   }
 })

@@ -96,8 +96,8 @@ public class UserService {
             me.setUsername(username);
         }
         if (password != null && !password.isBlank()) {
-            if (password.length() < 6) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "密码至少 6 位");
+            if (password.length() < 6 || password.length() > 64) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "密码需 6-64 位");
             }
             me.setPasswordHash(passwordEncoder.encode(password));
         }
@@ -115,6 +115,15 @@ public class UserService {
         }
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "密码错误");
+        }
+        // 旧哈希（SHA-256）自动升级为 BCrypt：渐进迁移，用户无感（P0-4）
+        if (passwordEncoder.needsUpgrade(user.getPasswordHash())) {
+            String upgraded = passwordEncoder.encode(password);
+            User up = new User();
+            up.setId(user.getId());
+            up.setPasswordHash(upgraded);
+            userMapper.updateById(up);
+            user.setPasswordHash(upgraded);
         }
         return user;
     }

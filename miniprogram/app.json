@@ -13,7 +13,9 @@
     "pages/peer-review/peer-review",
     "pages/admin/admin",
     "pages/login-preview/login-preview",
-    "pages/login-v2/login-v2"
+    "pages/login-v2/login-v2",
+    "pages/agreement/agreement",
+    "pages/privacy/privacy"
   ],
   "window": {
     "backgroundTextStyle": "dark",

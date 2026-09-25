@@ -1,0 +1,63 @@
+# ============================================================
+# 开发环境配置（dev）
+# 用于本地开发：允许默认值、mock 微信登录、本地磁盘存储、DEBUG 日志
+# ============================================================
+spring:
+  # ---------- 数据源 ----------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USER:app_user}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      pool-name: TreatbordHikari
+
+  # ---------- Redis ----------
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  # ---------- Flyway（独立迁移账号，含 DDL） ----------
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:treatbord}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    user: ${MYSQL_MIGRATE_USER:db_migrate}
+    password: ${MYSQL_MIGRATE_PASSWORD:}
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
+
+treatbord:
+  jwt:
+    # 仅开发默认值；生产（prod）必须环境变量注入且经启动校验
+    secret: ${JWT_SECRET:dev-only-change-me-32bytes-secret-key-0001}
+  storage:
+    type: local
+    local-dir: ${STORAGE_LOCAL_DIR:./uploads}
+    base-url: ${STORAGE_BASE_URL:http://127.0.0.1:8080/files}
+  wx:
+    # 本地联调：false = 用测试 openid 映射，不调用微信
+    enabled: ${WX_LOGIN_ENABLED:false}
+    appid: ${WX_APPID:}
+    secret: ${WX_SECRET:}
+    code2session-url: https://api.weixin.qq.com/sns/jscode2session
+  security:
+    password-pepper: ${PASSWORD_PEPPER:dev-pepper-change-me}
+    content-check-enabled: ${CONTENT_CHECK_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.treatbord: debug
+    com.baomidou.mybatisplus: warn

@@ -25,7 +25,7 @@ public class ReportService {
      * 提交举报：入库待处理。
      */
     public void create(ReportCreateRequest req, Long reporterId, HttpServletRequest httpReq) {
-        contentSecurityService.checkText(req.getReason(), "report");
+        contentSecurityService.checkText(req.getReason(), "report", reporterId);
 
         Report report = new Report();
         report.setReporterId(reporterId);

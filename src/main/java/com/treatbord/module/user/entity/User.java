@@ -6,12 +6,15 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 /**
  * 用户（user 表）。
+ * ⚠️ 禁止直接作为接口出参：敏感字段已加 @JsonIgnore 兜底，
+ * 对外一律使用 UserVO（见 module/user/dto/UserVO）。
  */
 @Data
 @TableName("user")
@@ -20,16 +23,19 @@ public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 微信 openid（注销时匿名化为 DEL_<uuid>） */
+    /** 微信 openid（注销时匿名化为 DEL_<uuid>）；内部标识，禁止外泄 */
+    @JsonIgnore
     private String openid;
 
     /** 登录账号（唯一；微信登录自动生成或用户自填） */
     private String username;
 
     /** 密码哈希（SHA-256 + 随机盐 + pepper；null 表示未设置账密） */
+    @JsonIgnore
     private String passwordHash;
 
     /** 预留 */
+    @JsonIgnore
     private String unionid;
 
     private String nickname;

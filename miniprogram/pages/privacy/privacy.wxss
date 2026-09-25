@@ -1,0 +1,38 @@
+.page { padding-bottom: 60rpx; }
+
+.doc-header {
+  padding: 48rpx 32rpx 24rpx;
+  text-align: center;
+}
+
+.doc-title { font-size: 44rpx; font-weight: 700; color: #172033; }
+
+.doc-meta { font-size: 24rpx; color: #94A3B8; margin-top: 12rpx; }
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #172033;
+  margin-bottom: 16rpx;
+}
+
+.para {
+  font-size: 27rpx;
+  line-height: 1.75;
+  color: #475569;
+  margin-bottom: 14rpx;
+}
+
+.footer-link {
+  text-align: center;
+  color: #3478F6;
+  font-size: 27rpx;
+  padding: 24rpx 0 8rpx;
+}
+
+.footer-tip {
+  text-align: center;
+  color: #94A3B8;
+  font-size: 23rpx;
+  padding-bottom: 20rpx;
+}

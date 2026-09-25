@@ -60,7 +60,7 @@ public class PeerReviewService {
         }
 
         // 3. 内容安全
-        contentSecurityService.checkText(req.getContent(), "review");
+        contentSecurityService.checkText(req.getContent(), "review", fromUserId);
 
         // 4. 入库（唯一索引防重复，冲突抛 409）
         Review review = new Review();
