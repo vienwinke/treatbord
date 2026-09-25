@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   padding-bottom: 120rpx;   /* 给固定底栏留出空间 */
-  background: #f5f6fa;
+  background: #F8FBFF;
 }
 
 /* ══ 个人信息区 ══ */
@@ -13,7 +13,7 @@
   align-items: center;
   padding: 60rpx 40rpx 50rpx;
   color: #fff;
-  background: linear-gradient(135deg, #4A90D9, #6bb3f0);
+  background: linear-gradient(135deg, #3478F6, #66B3FF);
 }
 
 .avatar {
@@ -50,7 +50,7 @@
 .orders {
   background: #fff;
   border-radius: 24rpx;
-  margin: 32rpx 24rpx 0;
+  margin: 24rpx 24rpx 0;
   padding: 28rpx 24rpx 10rpx;
   box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.06);
 }
@@ -64,7 +64,7 @@
 
 .orders-title { font-size: 32rpx; font-weight: bold; }
 
-.orders-all { font-size: 26rpx; color: #999; }
+.orders-all { font-size: 26rpx; color: #94A3B8; }
 
 .stat-row {
   display: flex;
@@ -81,13 +81,55 @@
 
 .stat-icon { font-size: 36rpx; }
 
-.stat-name { font-size: 22rpx; color: #555; margin-top: 8rpx; }
+.stat-name { font-size: 22rpx; color: #64748B; margin-top: 8rpx; }
 
 .stat-count {
   font-size: 20rpx;
-  color: #4A90D9;
+  color: #3478F6;
   margin-top: 4rpx;
 }
+
+/* ══ 功能区：常用功能 ══ */
+.func-card {
+  background: #fff;
+  border-radius: 24rpx;
+  margin: 24rpx 24rpx 0;
+  padding: 8rpx 0 4rpx;
+  box-shadow: 0 6rpx 20rpx rgba(23, 32, 51, 0.05);
+}
+.func-title {
+  font-size: 24rpx;
+  color: #94A3B8;
+  padding: 16rpx 28rpx 8rpx;
+}
+.func-item {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 28rpx;
+}
+.func-item + .func-item { border-top: 1rpx solid #EEF2F8; }
+.func-ic {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background: #EDF4FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.func-name { flex: 1; font-size: 28rpx; color: #172033; }
+.func-badge {
+  font-size: 20rpx;
+  color: #fff;
+  background: #E5484D;
+  border-radius: 18rpx;
+  padding: 2rpx 12rpx;
+  margin-right: 12rpx;
+}
+.func-arrow { font-size: 28rpx; color: #C7D2E0; }
 
 /* ══ 订单列表 ══ */
 .tabs {
@@ -106,7 +148,7 @@
   border-bottom: 4rpx solid transparent;
 }
 
-.tab-active { color: #4A90D9; font-weight: bold; border-bottom-color: #4A90D9; }
+.tab-active { color: #3478F6; font-weight: bold; border-bottom-color: #3478F6; }
 
 .claim-item { margin-bottom: 0; }
 
@@ -140,7 +182,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: #f5f6fa;
+  background: #F8FBFF;
   padding-top: 16rpx;
   padding-bottom: 30rpx;
   text-align: center;

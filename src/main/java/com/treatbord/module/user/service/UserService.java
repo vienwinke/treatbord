@@ -5,25 +5,37 @@ import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.mapper.UserMapper;
+import com.treatbord.security.PasswordEncoder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 用户服务：注册（首登建号）、查询、注销（openid 匿名化 - 方案 A）。
+ * 用户服务：注册（首登建号）、查询、账密设置/校验、注销（openid 匿名化 - 方案 A）。
  */
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
+    /** 避免易混淆字符（0/O、1/l） */
+    private static final String USERNAME_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkm23456789";
+
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     /** 按 openid 查用户（未删除） */
     public User findByOpenid(String openid) {
         return userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getOpenid, openid));
+    }
+
+    /** 按登录账号查用户（未删除） */
+    public User findByUsername(String username) {
+        return userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, username));
     }
 
     public User getById(Long id) {
@@ -43,7 +55,7 @@ public class UserService {
     }
 
     /**
-     * 登录时获取用户：不存在则创建（状态正常、信用分默认 100、角色 USER）。
+     * 登录时获取用户：不存在则创建（自动生成唯一账号、信用分 100、角色 USER）。
      */
     public User getOrCreate(String openid) {
         User user = findByOpenid(openid);
@@ -52,6 +64,7 @@ public class UserService {
         }
         User nu = new User();
         nu.setOpenid(openid);
+        nu.setUsername(generateUsername());
         nu.setNickname("微信用户");
         nu.setCreditScore(100);
         nu.setRole(0);
@@ -59,6 +72,66 @@ public class UserService {
         nu.setRegisterTime(LocalDateTime.now());
         userMapper.insert(nu);
         return nu;
+    }
+
+    /**
+     * 设置/修改账密（账号唯一校验 + 密码加盐哈希）。
+     *
+     * @param username 允许空：不改账号
+     * @param password 允许空：不改密码
+     */
+    public void setCredentials(Long userId, String username, String password) {
+        User me = getById(userId);
+        if (username != null && !username.isBlank() && !username.equals(me.getUsername())) {
+            if (username.length() < 4 || username.length() > 32) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "账号长度需 4-32 位");
+            }
+            if (!username.matches("^[a-zA-Z0-9_]+$")) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "账号仅支持字母/数字/下划线");
+            }
+            User exist = findByUsername(username);
+            if (exist != null && !exist.getId().equals(userId)) {
+                throw new BusinessException(ResultCode.CONFLICT, "该账号已被占用");
+            }
+            me.setUsername(username);
+        }
+        if (password != null && !password.isBlank()) {
+            if (password.length() < 6) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "密码至少 6 位");
+            }
+            me.setPasswordHash(passwordEncoder.encode(password));
+        }
+        userMapper.updateById(me);
+    }
+
+    /** 账密登录校验：返回匹配用户；账号不存在 / 未设密码 / 密码错误分别抛错。 */
+    public User verifyAccount(String username, String password) {
+        User user = findByUsername(username);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND, "账号不存在");
+        }
+        if (user.getPasswordHash() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该账号未设置密码，请用微信登录后设置");
+        }
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "密码错误");
+        }
+        return user;
+    }
+
+    /** 生成唯一用户名（随机 7 位 + 前缀 u），冲突时用 UUID 兜底。 */
+    private String generateUsername() {
+        for (int i = 0; i < 20; i++) {
+            StringBuilder sb = new StringBuilder("u");
+            for (int j = 0; j < 7; j++) {
+                sb.append(USERNAME_CHARS.charAt(ThreadLocalRandom.current().nextInt(USERNAME_CHARS.length())));
+            }
+            String candidate = sb.toString();
+            if (findByUsername(candidate) == null) {
+                return candidate;
+            }
+        }
+        return "u" + UUID.randomUUID().toString().substring(0, 8).replace("-", "");
     }
 
     /**

@@ -41,20 +41,46 @@
   </view>
 
   <!-- ══ Login CTA（微信一键登录） ══ -->
-  <view class="cta-row">
-    <button class="login-btn" bindtap="doLogin" loading="{{loading}}">
-      <view class="login-inner">
-        <view class="wx-mark">
-          <view class="wx-bubble wx-bubble-a"></view>
-          <view class="wx-bubble wx-bubble-b"></view>
+  <block wx:if="{{mode === 'wx'}}">
+    <view class="cta-row">
+      <button class="login-btn" bindtap="doLogin" loading="{{loading}}">
+        <view class="login-inner">
+          <view class="wx-mark">
+            <view class="wx-bubble wx-bubble-a"></view>
+            <view class="wx-bubble wx-bubble-b"></view>
+          </view>
+          <text class="login-text">{{loading ? '登录中...' : '微信一键登录'}}</text>
         </view>
-        <text class="login-text">{{loading ? '登录中...' : '微信一键登录'}}</text>
-      </view>
-    </button>
-  </view>
+      </button>
+    </view>
 
-  <!-- ══ Login Hint ══ -->
-  <view class="login-hint">首次微信授权登录将自动创建 Treatbord 账号</view>
+    <!-- ══ Login Hint ══ -->
+    <view class="login-hint">首次微信授权登录将自动创建 Treatbord 账号</view>
+
+    <!-- ══ 其他登录方式 ══ -->
+    <view class="other-divider"><text>其他登录方式</text></view>
+    <view class="other-btn" bindtap="switchAccountLogin">
+      <text class="other-ic">🔑</text>
+      <text class="other-text">账密登录</text>
+    </view>
+  </block>
+
+  <!-- ══ 账密登录 ══ -->
+  <block wx:if="{{mode === 'account'}}">
+    <view class="acc-back" bindtap="backWx">‹ 返回微信登录</view>
+    <view class="acc-item">
+      <view class="acc-label">账号</view>
+      <input class="acc-input" placeholder="登录账号（微信登录后可在个人中心设置）"
+             placeholder-class="acc-ph" value="{{account}}" bindinput="onAccountInput" />
+    </view>
+    <view class="acc-item">
+      <view class="acc-label">密码</view>
+      <input class="acc-input" password placeholder="请输入密码"
+             placeholder-class="acc-ph" value="{{password}}" bindinput="onPasswordInput" />
+    </view>
+    <button class="acc-login" bindtap="doAccountLogin" loading="{{loading}}">登录</button>
+    <view class="acc-tip">没有账密？先微信一键登录，之后在「我的-常用功能-设置账号密码」创建账密。</view>
+  </block>
 
   <!-- ══ Agreement ══ -->
   <view class="agreement">

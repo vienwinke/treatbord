@@ -1,0 +1,30 @@
+<view class="page">
+
+  <view class="head">
+    <view class="head-title">{{title}}</view>
+  </view>
+
+  <view wx:if="{{loading && !list.length}}" class="empty">加载中...</view>
+  <view wx:elif="{{!list.length}}" class="empty">{{emptyTip}}</view>
+
+  <view class="card claim-item" wx:for="{{list}}" wx:key="id">
+    <view class="claim-head">
+      <text class="claim-title">{{item.taskTitle}}</text>
+      <text class="tag {{item.tagClass}}">{{item.claimStatusText}}</text>
+    </view>
+    <view class="claim-meta">
+      <text>报酬 ¥{{item.reward}}</text>
+      <text>任务状态：{{item.taskStatusText}}</text>
+    </view>
+    <view class="claim-actions">
+      <button size="mini" bindtap="goTask" data-taskid="{{item.taskId}}">详情</button>
+      <button wx:if="{{item.status === 'CLAIMED'}}" size="mini" type="warn" plain
+              data-id="{{item.id}}" bindtap="doCancelClaim">取消</button>
+      <button wx:if="{{item.status === 'CLAIMED'}}" size="mini" type="primary"
+              data-taskid="{{item.taskId}}" bindtap="goSubmit">提交凭证</button>
+      <button wx:if="{{item.status === 'APPROVED'}}" size="mini" type="primary" plain
+              data-claimid="{{item.id}}" data-taskid="{{item.taskId}}" bindtap="goPeerReview">互评</button>
+    </view>
+  </view>
+
+</view>

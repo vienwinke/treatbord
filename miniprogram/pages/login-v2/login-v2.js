@@ -18,7 +18,10 @@ Page({
   data: {
     loading: false,
     agreed: true,          // 默认勾选协议，保持“一键登录”零摩擦（合规文案以上线版为准）
-    statusBarHeight: 44    // 自定义导航栏状态栏高度（px）
+    statusBarHeight: 44,   // 自定义导航栏状态栏高度（px）
+    mode: 'wx',            // wx=微信一键登录 | account=账密登录
+    account: '',
+    password: ''
   },
 
   onLoad(options) {
@@ -41,10 +44,12 @@ Page({
     }
   },
 
-  /** 返回上一页（个人中心子入口）；无上一页时回落任务大厅 */
+  /** 返回：有上一页则返回；若带 redirect 回跳则回来源页；否则回落任务大厅 */
   goBack() {
     if (getCurrentPages().length > 1) {
       wx.navigateBack()
+    } else if (this.redirect) {
+      wx.reLaunch({ url: decodeURIComponent(this.redirect) })
     } else {
       wx.switchTab({ url: '/pages/index/index' })
     }
@@ -79,6 +84,31 @@ Page({
       setTimeout(() => {
         this.afterLogin()
       }, 800)
+    } catch (e) {
+      wx.showToast({ title: e.message, icon: 'none' })
+    } finally {
+      wx.hideLoading()
+      this.setData({ loading: false })
+    }
+  },
+
+  /* ══ 账密登录 ══ */
+  switchAccountLogin() { this.setData({ mode: 'account' }) },
+  backWx() { this.setData({ mode: 'wx', account: '', password: '' }) },
+  onAccountInput(e) { this.setData({ account: e.detail.value }) },
+  onPasswordInput(e) { this.setData({ password: e.detail.value }) },
+  async doAccountLogin() {
+    if (this.data.loading) return
+    const { account, password } = this.data
+    if (!account.trim()) return wx.showToast({ title: '请输入账号', icon: 'none' })
+    if (!password) return wx.showToast({ title: '请输入密码', icon: 'none' })
+    this.setData({ loading: true })
+    wx.showLoading({ title: '登录中...' })
+    try {
+      const loginResult = await api.accountLogin(account.trim(), password)
+      getApp().setAuth(loginResult.token, loginResult.user)
+      wx.showToast({ title: '登录成功', icon: 'success' })
+      setTimeout(() => this.afterLogin(), 800)
     } catch (e) {
       wx.showToast({ title: e.message, icon: 'none' })
     } finally {

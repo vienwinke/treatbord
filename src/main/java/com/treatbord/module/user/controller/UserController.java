@@ -3,6 +3,7 @@ package com.treatbord.module.user.controller;
 import com.treatbord.common.Result;
 import com.treatbord.module.auth.dto.LoginResponse;
 import com.treatbord.module.auth.service.AuthService;
+import com.treatbord.module.user.dto.SetCredentialsRequest;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.service.UserService;
 import com.treatbord.security.UserContext;
@@ -10,6 +11,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +32,13 @@ public class UserController {
     public Result<LoginResponse.UserView> me() {
         User user = userService.getById(UserContext.userId());
         return Result.ok(LoginResponse.UserView.from(user));
+    }
+
+    /** 2.6 设置/修改账密（绑微信账号，登录态） */
+    @PostMapping("/me/credentials")
+    public Result<Void> setCredentials(@RequestBody SetCredentialsRequest req) {
+        userService.setCredentials(UserContext.userId(), req.getUsername(), req.getPassword());
+        return Result.ok();
     }
 
     /** 2.4 注销账号（合规强制：匿名化 openid） */
