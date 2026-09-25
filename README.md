@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![Redis](https://img.shields.io/badge/Redis-8-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5.12-blue)](https://baomidou.com/)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](#-license)
 
@@ -183,7 +183,7 @@ StartupValidator.afterPropertiesSet() {
 | ORM | MyBatis-Plus | 3.5.12 |
 | 数据库 | MySQL | 8.4 (utf8mb4 / Asia/Shanghai) |
 | 数据库迁移 | Flyway | V1~V4 |
-| 缓存 / 限流 | Redis | 7.x |
+| 缓存 / 限流 | Redis | 8.0 |
 | 认证 | jjwt (JWT HS256) | 0.12.6 |
 | 密码 | spring-security-crypto (BCrypt) | — |
 | API 文档 | springdoc-openapi (Swagger UI) | 2.8.9 |
