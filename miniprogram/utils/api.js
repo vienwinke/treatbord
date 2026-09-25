@@ -6,8 +6,10 @@ const req = require('./request')
 module.exports = {
   // ---- 认证 §2 ----
   login: (code) => req.post('/auth/login', { code }),
+  accountLogin: (username, password) => req.post('/auth/account/login', { username, password }),
   logout: () => req.post('/auth/logout', {}, { auth: true }),
   me: () => req.get('/users/me', { auth: true }),
+  setCredentials: (data) => req.post('/users/me/credentials', data, { auth: true }),
   deleteAccount: () => req.del('/users/me', { auth: true }),
 
   // ---- 任务 §3 ----

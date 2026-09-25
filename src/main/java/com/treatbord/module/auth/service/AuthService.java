@@ -16,7 +16,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * 认证服务：登录（code2session → 签发 JWT）、登出（jti 黑名单）。
+ * 认证服务：登录（微信 code2session / 账密 → 签发 JWT）、登出（jti 黑名单）、注销。
  */
 @Slf4j
 @Service
@@ -34,41 +34,26 @@ public class AuthService {
      * 微信登录：code → openid → 查/建用户 → 签发 token。
      */
     public LoginResponse login(LoginRequest req, HttpServletRequest httpReq) {
-        // 1. code 换 openid
         String openid = wxAuthService.code2Openid(req.getCode());
-
-        // 2. 查/建用户
         User user = userService.getOrCreate(openid);
-
-        // 3. 封禁校验
+        // 封禁校验
         if (Integer.valueOf(1).equals(user.getStatus())) {
             auditService.recordLogin(user.getId(), false, "USER_BANNED", httpReq);
             throw new BusinessException(ResultCode.USER_BANNED);
         }
+        return issueToken(user, "微信登录", httpReq);
+    }
 
-        // 4. 签发 JWT（含 userId/role/status/jti）
-        String[] tokenAndJti = jwtUtil.generate(user.getId(), user.getRole(), user.getStatus());
-
-        // 4.1 注册 jti 到用户会话集合（供封禁踢人下线：admin 按 user 扫描踢除）
-        try {
-            if (tokenAndJti[1] != null) {
-                redisTemplate.opsForSet().add("user:" + user.getId() + ":jtis", tokenAndJti[1]);
-                redisTemplate.expire("user:" + user.getId() + ":jtis",
-                        java.time.Duration.ofSeconds(jwtUtil.expireSeconds()));
-            }
-        } catch (Exception e) {
-            log.warn("jti 注册失败 userId={}", user.getId(), e);
+    /**
+     * 账密登录：账号 + 密码 → 校验 → 签发 token（与微信登录同一用户，openid 绑定）。
+     */
+    public LoginResponse accountLogin(String username, String password, HttpServletRequest httpReq) {
+        User user = userService.verifyAccount(username, password);
+        if (Integer.valueOf(1).equals(user.getStatus())) {
+            auditService.recordLogin(user.getId(), false, "USER_BANNED", httpReq);
+            throw new BusinessException(ResultCode.USER_BANNED);
         }
-
-        // 5. 审计
-        auditService.recordLogin(user.getId(), true, null, httpReq);
-        auditService.record(user.getId(), "LOGIN", "user", user.getId(), "微信登录", httpReq);
-
-        return LoginResponse.builder()
-                .token(tokenAndJti[0])
-                .expiresIn(jwtUtil.expireSeconds())
-                .user(LoginResponse.UserView.from(user))
-                .build();
+        return issueToken(user, "账密登录", httpReq);
     }
 
     /**
@@ -95,5 +80,26 @@ public class AuthService {
             tokenBlacklistService.blacklist(jti);
         }
         auditService.record(userId, "DELETE_ACCOUNT", "user", userId, "注销账号(openid 已匿名化)", httpReq);
+    }
+
+    /** 签发 JWT + 注册 jti + 审计，返回登录响应。 */
+    private LoginResponse issueToken(User user, String method, HttpServletRequest httpReq) {
+        String[] tokenAndJti = jwtUtil.generate(user.getId(), user.getRole(), user.getStatus());
+        try {
+            if (tokenAndJti[1] != null) {
+                redisTemplate.opsForSet().add("user:" + user.getId() + ":jtis", tokenAndJti[1]);
+                redisTemplate.expire("user:" + user.getId() + ":jtis",
+                        java.time.Duration.ofSeconds(jwtUtil.expireSeconds()));
+            }
+        } catch (Exception e) {
+            log.warn("jti 注册失败 userId={}", user.getId(), e);
+        }
+        auditService.recordLogin(user.getId(), true, null, httpReq);
+        auditService.record(user.getId(), "LOGIN", "user", user.getId(), method, httpReq);
+        return LoginResponse.builder()
+                .token(tokenAndJti[0])
+                .expiresIn(jwtUtil.expireSeconds())
+                .user(LoginResponse.UserView.from(user))
+                .build();
     }
 }

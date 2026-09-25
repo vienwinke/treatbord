@@ -20,6 +20,7 @@ public class LoginResponse {
     @Builder
     public static class UserView {
         private Long id;
+        private String username;
         private String nickname;
         private String avatar;
         private Integer creditScore;
@@ -30,6 +31,7 @@ public class LoginResponse {
         public static UserView from(User u) {
             return UserView.builder()
                     .id(u.getId())
+                    .username(u.getUsername())
                     .nickname(u.getNickname())
                     .avatar(u.getAvatar())
                     .creditScore(u.getCreditScore())

@@ -41,6 +41,47 @@
     </view>
   </view>
 
+  <!-- ══ 功能区：常用功能 ══ -->
+  <view class="func-card">
+    <view class="func-title">常用功能</view>
+    <view class="func-item" bindtap="goNotifications">
+      <view class="func-ic">🔔</view>
+      <text class="func-name">消息通知</text>
+      <text wx:if="{{unread > 0}}" class="func-badge">{{unread}}</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goPublished">
+      <view class="func-ic">📤</view>
+      <text class="func-name">我的发布</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goReport">
+      <view class="func-ic">🚩</view>
+      <text class="func-name">举报与反馈</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goCredit">
+      <view class="func-ic">⭐</view>
+      <text class="func-name">信用与评价</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view wx:if="{{isAdmin}}" class="func-item" bindtap="goAdmin">
+      <view class="func-ic">🛡</view>
+      <text class="func-name">管理后台</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goHelp">
+      <view class="func-ic">💬</view>
+      <text class="func-name">帮助与反馈</text>
+      <text class="func-arrow">›</text>
+    </view>
+    <view class="func-item" bindtap="goCredentials">
+      <view class="func-ic">🔐</view>
+      <text class="func-name">设置账号密码</text>
+      <text class="func-arrow">›</text>
+    </view>
+  </view>
+
   <!-- ══ 订单列表（我接取的 / 我发布的） ══ -->
   <view class="tabs">
     <view class="tab {{tab === 'claims' ? 'tab-active' : ''}}" data-tab="claims" bindtap="switchTab">

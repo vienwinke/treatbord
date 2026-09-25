@@ -27,13 +27,13 @@ page {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: relative;
   border-bottom: 1rpx solid #E5EAF2;   /* 分割线 */
 }
 .nav-back {
-  width: 88rpx;
+  width: 96rpx;
   height: 88rpx;
   margin-left: 8rpx;
+  flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -48,15 +48,17 @@ page {
   transform: rotate(45deg);
 }
 .nav-title {
-  position: absolute;
-  left: 0;
-  right: 0;
+  flex: 1;
   text-align: center;
   font-size: 34rpx;
   font-weight: 600;
   color: #172033;
 }
-.nav-space { width: 96rpx; }
+.nav-space {
+  width: 96rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
+}
 
 /* ══ Brand（垂直居中：Logo / Treatbord / 任务服务中心） ══ */
 .hero {
@@ -252,4 +254,79 @@ page {
   font-size: 20rpx;
   color: #94A3B8;
   letter-spacing: 2rpx;
+}
+
+/* ══ 其他登录方式 ══ */
+.other-divider {
+  display: flex;
+  align-items: center;
+  margin-top: 40rpx;
+  color: #94A3B8;
+  font-size: 24rpx;
+}
+.other-divider::before,
+.other-divider::after {
+  content: '';
+  flex: 1;
+  height: 1rpx;
+  background: #E5EAF2;
+}
+.other-divider text { margin: 0 24rpx; }
+.other-btn {
+  margin-top: 28rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 2rpx solid #E5EAF2;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  color: #172033;
+}
+.other-ic { font-size: 32rpx; margin-right: 10rpx; }
+.other-text { font-size: 30rpx; }
+
+/* ══ 账密登录 ══ */
+.acc-back {
+  margin-top: 24rpx;
+  color: #3478F6;
+  font-size: 26rpx;
+  padding: 12rpx 0;
+}
+.acc-item {
+  margin-top: 24rpx;
+  background: #FFFFFF;
+  border: 2rpx solid #E5EAF2;
+  border-radius: 20rpx;
+  padding: 8rpx 28rpx;
+}
+.acc-label { font-size: 24rpx; color: #94A3B8; margin-top: 16rpx; }
+.acc-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 72rpx;
+  font-size: 30rpx;
+  color: #172033;
+}
+.acc-ph { color: #94A3B8; }
+.acc-login {
+  margin-top: 40rpx;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #3478F6 0%, #66B3FF 100%);
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 20rpx;
+  border: none;
+}
+.acc-login::after { border: none; }
+.acc-tip {
+  margin-top: 24rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #94A3B8;
+  line-height: 1.5;
 }

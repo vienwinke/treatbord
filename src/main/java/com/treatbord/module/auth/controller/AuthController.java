@@ -1,6 +1,7 @@
 package com.treatbord.module.auth.controller;
 
 import com.treatbord.common.Result;
+import com.treatbord.module.auth.dto.AccountLoginRequest;
 import com.treatbord.module.auth.dto.LoginRequest;
 import com.treatbord.module.auth.dto.LoginResponse;
 import com.treatbord.module.auth.service.AuthService;
@@ -23,11 +24,18 @@ public class AuthController {
 
     private final AuthService authService;
 
-    /** 2.1 用户登录 */
+    /** 2.1 用户登录（微信 code2session） */
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest req,
                                        HttpServletRequest httpReq) {
         return Result.ok(authService.login(req, httpReq));
+    }
+
+    /** 2.5 账密登录（与微信登录绑定同一用户） */
+    @PostMapping("/account/login")
+    public Result<LoginResponse> accountLogin(@Valid @RequestBody AccountLoginRequest req,
+                                              HttpServletRequest httpReq) {
+        return Result.ok(authService.accountLogin(req.getUsername(), req.getPassword(), httpReq));
     }
 
     /** 2.2 退出登录（jti 入黑名单） */

@@ -38,6 +38,8 @@ Page({
     nickname: '',
     nickname0: '?',
     creditScore: 100,
+    isAdmin: false,
+    unread: 0,
     orderFilter: '',          // DOING/CONFIRM/DONE/CLOSED/''=全部
     stats: { doing: 0, confirm: 0, done: 0, closed: 0 }
   },
@@ -47,9 +49,10 @@ Page({
     if (wx.getStorageSync('token')) {
       this.refresh()
       this.loadStats()
+      this.loadUnread()
     } else {
       // 游客模式：显示空态 + 引导（不发鉴权请求）
-      this.setData({ claims: [], visibles: [], myTasks: [], loading: false })
+      this.setData({ claims: [], visibles: [], myTasks: [], loading: false, unread: 0 })
     }
   },
 
@@ -71,11 +74,17 @@ Page({
       userInfo: u,
       nickname: u.nickname || '',
       nickname0: (u.nickname || '?')[0],
-      creditScore: u.creditScore || 100
+      creditScore: u.creditScore || 100,
+      isAdmin: !!u && Number(u.role) === 1
     })
   },
 
   refresh() {
+    // 游客不触发鉴权请求/登录跳转；登录仅通过个人信息区（onTapProfile）
+    if (!this.data.isLogin) {
+      this.setData({ claims: [], visibles: [], myTasks: [], loading: false })
+      return Promise.resolve()
+    }
     // 必须用 this.method() 调用以保留 this 绑定；否则 loadClaims/loadPublished 里 this.setData 会抛错
     if (this.data.tab === 'claims') return this.loadClaims()
     return this.loadPublished()
@@ -86,10 +95,13 @@ Page({
     this.refresh()
   },
 
-  /** 点顶部订单状态卡：切到接取列表并按状态筛选 */
+  /** 点顶部订单状态卡：游客提示登录；已登录进入对应状态的订单列表页 */
   goOrders(e) {
-    this.setData({ tab: 'claims', orderFilter: e.currentTarget.dataset.status })
-    this.refresh()
+    if (!this.data.isLogin) {
+      wx.showToast({ title: '请先登录（点击上方个人信息）', icon: 'none' })
+      return
+    }
+    wx.navigateTo({ url: '/pages/order-list/order-list?status=' + e.currentTarget.dataset.status })
   },
 
   /** 全部订单 */
@@ -99,6 +111,7 @@ Page({
   },
 
   loadClaims() {
+    if (!this.data.isLogin) return Promise.resolve()
     this.setData({ loading: true })
     return api.myClaims(1).then(res => {
       const claims = res.list || []
@@ -116,6 +129,7 @@ Page({
   },
 
   loadPublished() {
+    if (!this.data.isLogin) return Promise.resolve()
     this.setData({ loading: true })
     return api.myTasks(1).then(res => {
       const myTasks = res.list.map(t => Object.assign({}, t, {
@@ -141,6 +155,64 @@ Page({
       })
       this.setData({ stats: s })
     }).catch(() => {})
+  },
+
+  /** 未读通知数 */
+  loadUnread() {
+    if (!this.data.isLogin) return Promise.resolve()
+    return api.unreadCount().then(res => {
+      this.setData({ unread: (res && res.total) || 0 })
+    }).catch(() => {})
+  },
+
+  /** 需要登录才可用的入口：游客不跳登录，提示从个人信息区登录 */
+  requireLogin() {
+    if (this.data.isLogin) return true
+    wx.showToast({ title: '请先登录（点击上方个人信息）', icon: 'none' })
+    return false
+  },
+
+  /* ══ 功能区：常用功能入口 ══ */
+  goNotifications() {
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/notifications/notifications' })
+  },
+  goPublished() {
+    this.setData({ tab: 'published', orderFilter: '' })
+    this.refresh()
+  },
+  goReport() {
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/report/report' })
+  },
+  goCredit() {
+    if (!this.requireLogin()) return
+    wx.showModal({
+      title: '信用分 ' + this.data.creditScore,
+      content: '信用分反映履约情况。按时提交、诚信互评可加分；违规、超时或取消会被扣分。',
+      showCancel: false,
+      confirmText: '知道了'
+    })
+  },
+  goAdmin() {
+    if (!this.requireLogin()) return
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '仅管理员可访问', icon: 'none' })
+      return
+    }
+    wx.navigateTo({ url: '/pages/admin/admin' })
+  },
+  goHelp() {
+    wx.showModal({
+      title: '帮助与反馈',
+      content: '发布/接取遇到问题？可先到大厅查看任务详情；如需人工协助，请通过「举报与反馈」提交，我们会在 1-3 个工作日内处理。（MVP 文案）',
+      showCancel: false,
+      confirmText: '知道了'
+    })
+  },
+  goCredentials() {
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/credentials/credentials' })
   },
 
   /** 点击个人信息区：未登录 → 跳登录页；已登录 → 弹操作菜单 */

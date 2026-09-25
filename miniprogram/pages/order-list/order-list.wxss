@@ -1,0 +1,42 @@
+/* ═══ 我的订单列表页（按状态过滤） ═══ */
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 24rpx 40rpx;
+  background: #F8FBFF;
+}
+
+.head { padding: 8rpx 4rpx 20rpx; }
+.head-title { font-size: 30rpx; font-weight: 600; color: #172033; }
+
+.empty {
+  text-align: center;
+  color: #94A3B8;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+}
+
+.claim-item { margin-bottom: 20rpx; }
+
+.claim-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.claim-title { font-size: 30rpx; font-weight: 600; flex: 1; color: #172033; }
+
+.claim-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: #94A3B8;
+}
+
+.claim-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}

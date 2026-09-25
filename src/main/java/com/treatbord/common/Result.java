@@ -18,6 +18,7 @@ public class Result<T> {
         r.code = ResultCode.SUCCESS.getCode();
         r.message = ResultCode.SUCCESS.getMessage();
         r.data = data;
+        r.traceId = TraceContext.get();
         return r;
     }
 
@@ -29,6 +30,7 @@ public class Result<T> {
         Result<T> r = new Result<>();
         r.code = rc.getCode();
         r.message = rc.getMessage();
+        r.traceId = TraceContext.get();
         return r;
     }
 
@@ -36,6 +38,7 @@ public class Result<T> {
         Result<T> r = new Result<>();
         r.code = code;
         r.message = message;
+        r.traceId = TraceContext.get();
         return r;
     }
 }
