@@ -250,3 +250,65 @@ mvn -s settings-mirror.xml spring-boot:run
 - [ ] 微信隐私保护指引配置（与 privacy 页面逐项对齐）
 - [ ] HTTPS + 域名备案 + request 合法域名
 - [ ] 压测（并发接取）、数据库备份与恢复演练、日志采集策略
+
+---
+
+# 📅 2026-09-26 工作记录：缺陷批修（15 项）+ 独立库冒烟验证
+
+## 一、背景
+
+本轮不做中间件扩展，先做**以代码为证据的缺陷审查**：静态通读后端 104 个 Java 文件 + 4 个 Flyway 迁移 + 8 份文档，
+确认 15 项缺陷（安全 / 并发 / 状态机为主），一次性修复并在**独立测试库**上端到端验证。
+
+## 二、修复清单（含 2 个新增文件）
+
+| ID | 问题 | 修复 | 位置 |
+|---|---|---|---|
+| S1 | `bizType` 无白名单即参与磁盘路径拼接 → **目录逃逸写文件** | Controller 白名单（submission/avatar）+ 本地/OSS 存储二次校验 + `normalize()` 后 `startsWith(baseDir)` | `FileController` / `LocalStorageService` / `AliOssStorageService` |
+| S2 | 凭证 `fileIds` 不校验归属与内容安全 → **引用他人文件 / 绕过检测** | 校验存在性（未逻辑删除）+ `uploader_id` + `sec_status != 违规` | `SubmissionService.validateFileIds()` |
+| S3 | 原子扣减不判 `claim_deadline` → 截止后 1 分钟窗口仍可接取 | SQL 增加 `AND claim_deadline > NOW() AND deadline > NOW()`；失败分支区分「已过截止」与「名额已满」 | `TaskMapper` / `ClaimService` |
+| S4 | `submit`/`review` 不校验任务状态 → 已取消任务仍可提交/审核 | 跨聚合校验任务状态 ∈ {OPEN, IN_PROGRESS, REVIEWING} | `SubmissionService` / `ReviewService` |
+| S5 | 定时任务不触发收尾 → 任务卡 IN_PROGRESS、**settlement 永不生成** | `finalizeTaskIfNeeded` 改 public + `@Transactional`；自动通过/超时取消后调用；结算插入幂等 | `ScheduledTasks` / `ReviewService` |
+| S6 | 注销只拉黑当前 jti → 其它设备 token 仍可用 | 注销时撤销该用户全部 jti（复用 `user:{id}:jtis` 集合） | `AuthService.revokeAllSessions()` |
+| S7 | prod 未关闭 API 文档 | `application-prod.yml` 关闭 SpringDoc api-docs / swagger-ui | `application-prod.yml` |
+| S8 | `/files/**` 无鉴权且不在限流范围 | 纳入限流拦截器（scope=fileview）；私有桶 + 签名 URL 留待 OSS 阶段 | `WebConfig` / `RateLimitInterceptor` |
+| S9 | 限流与审计的 key 取自可伪造的 `X-Forwarded-For` | 新增 `ClientIpResolver`：默认只信 `remoteAddr`，需显式开启才信 XFF | `ClientIpResolver`（新）/ `RateLimitInterceptor` / `AuditService` |
+| C1 | `@Version` **空转**（未注册乐观锁拦截器）→ README「三级防线」名不副实 | 注册 `OptimisticLockerInnerInterceptor`（先乐观锁、分页放最后） | `MybatisPlusConfig` |
+| C2 | 覆盖提交重置 48h 审核窗口 → 可反复拖单 | 仅首次提交写 `submitted_at` / `review_deadline` | `SubmissionService` |
+| C3 | 定时任务混用应用时钟、且迁移无状态审计 | 时间判定改 DB `NOW()`；逐条 CAS + 写 `task_status_log` | `ScheduledTasks.expireByStatus()` |
+| C4 | `GET /api/tasks` 内直接写库（惰性过期） | 移除读路径写库，过期统一由定时任务负责 | `TaskService.list()` |
+| C5 | 代码读取的配置键种子缺失 / 种子键无人读 | 新增 `V5__add_missing_config_keys.sql`；`page.size.max` 由 ApplicationRunner 启动后生效 | `V5`（新）/ `MybatisPlusConfig` |
+| 附 1 | `settleApproved` 重跑会重复插入结算 | 按 task 已存在结算跳过（幂等） | `ReviewService` |
+| 附 2 | 事务内手动回退名额是死代码（误导阅读） | 删除 3 处 `decrementClaimedCount()` 手动回退并注释说明回滚语义 | `ClaimService` |
+
+## 三、验证（独立库，未触碰演示库）
+
+1. `mvn -s settings-mirror.xml clean compile -DskipTests` → **BUILD SUCCESS**（105 源文件，5.3s）
+2. 新建独立库 `treatbord_test`（授权 `app_user` / `db_migrate`），以 `MYSQL_DB=treatbord_test SERVER_PORT=18080` 启动
+   → Flyway 应用 **V1–V5**，`Started TreatbordApplication in 5.24s`
+3. mock 双用户 + curl 断言：
+
+| 用例 | 结果 |
+|---|---|
+| `POST /api/files?bizType=../../evil` | 400「不支持的 bizType」（uploads 下无逃逸目录） |
+| 提交引用他人 fileId | 403「只能引用自己上传的文件」 |
+| 提交引用不存在 fileId | 400「存在无效或已删除的 fileId」 |
+| 对已过 `claim_deadline` 的任务接取 | 2002「任务已过接取/完成截止时间」 |
+| 对 CANCELLED 任务提交凭证 | 3003「任务当前状态（CANCELLED）不可提交凭证」 |
+| 覆盖提交前后 `review_deadline` | 完全一致（未重置） |
+| `submitted_at` 改 49h 前 → 等定时任务 | claim=APPROVED，task=**SETTLED**，settlement **1 笔 / 1.00**，status_log 三段完整 |
+| 过期 OPEN 任务 → 等定时任务 | task=EXPIRED，`task_status_log` 记录 `OPEN->EXPIRED / 接取截止已过自动过期` |
+| 注销后复用旧 token | 401「登录已失效，请重新登录」 |
+| `app_config` 新键 | `credit.claim.threshold=60`、`credit.penalty.reject=5`、`fileview.rate.limit.per.minute=120`、`page.size.max=20` |
+
+## 四、遗留
+
+- `src/test` 仍为空：本轮验证依赖冒烟脚本，**尚未形成自动化回归**（下一步补 并发防超卖 / IDOR / 状态机 三类测试）
+- S8 的完整方案（私有桶 + 签名 URL）依赖 OSS 凭证
+- 低危遗留：`unbanUser` 无事务、jti 黑名单 TTL 取全生命周期、限流仅覆盖 6 类 URI、dev 文件 URL 写死 `127.0.0.1`
+
+## 五、副作用与回滚
+
+- 新增数据库 `treatbord_test`（建议保留作集成测试库）；`treatbord` 演示库未被触碰
+- 冒烟产生的上传文件已清理；18080 测试实例已停止
+- 本次改动集中在 15 个文件 + 2 个新增文件，未提交前可用 `git checkout -- <file>` 回滚

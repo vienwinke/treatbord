@@ -17,6 +17,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimitService rateLimitService;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -24,7 +25,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (scope == null) {
             return true;
         }
-        if (!rateLimitService.tryAcquire(scope, clientIp(request))) {
+        if (!rateLimitService.tryAcquire(scope, clientIpResolver.resolve(request))) {
             throw new BusinessException(ResultCode.TOO_MANY_REQUESTS);
         }
         return true;
@@ -43,11 +44,10 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (uri.equals("/api/files")) {
             return "upload";
         }
+        // 凭证/头像直读路径（无鉴权）也要有限流兜底
+        if (uri.startsWith("/files/")) {
+            return "fileview";
+        }
         return null;
-    }
-
-    private String clientIp(HttpServletRequest req) {
-        String xff = req.getHeader("X-Forwarded-For");
-        return (xff == null || xff.isBlank()) ? req.getRemoteAddr() : xff.split(",")[0].trim();
     }
 }

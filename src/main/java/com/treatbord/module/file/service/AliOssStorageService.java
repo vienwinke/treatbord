@@ -64,8 +64,15 @@ public class AliOssStorageService implements StorageService {
         return local;
     }
 
+    /** 允许的业务目录白名单（与 FileController 一致，防 key 逃逸） */
+    private static final java.util.Set<String> ALLOWED_BIZ_TYPES =
+            java.util.Set.of("submission", "avatar");
+
     @Override
     public String store(MultipartFile file, String bizType) throws IOException {
+        if (bizType == null || !ALLOWED_BIZ_TYPES.contains(bizType)) {
+            throw new IOException("不支持的 bizType: " + bizType);
+        }
         String ext = extensionOf(file.getOriginalFilename());
         String yyyyMM = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
         String key = "biz/" + bizType + "/" + yyyyMM + "/"

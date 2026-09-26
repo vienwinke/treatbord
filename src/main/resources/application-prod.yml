@@ -58,6 +58,12 @@ treatbord:
     password-pepper: ${PASSWORD_PEPPER:}
     content-check-enabled: true     # 生产强制开启内容安全
 
+springdoc:
+  api-docs:
+    enabled: false                  # 生产关闭 OpenAPI 文档（避免公开接口清单）
+  swagger-ui:
+    enabled: false
+
 management:
   endpoints:
     web:

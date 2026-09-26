@@ -36,6 +36,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReviewService {
 
+    /** 可审核凭证的任务状态（跨聚合校验用） */
+    private static final java.util.Set<String> REVIEWABLE_TASK_STATUSES =
+            java.util.Set.of("OPEN", "IN_PROGRESS", "REVIEWING");
+
     private final TaskClaimMapper taskClaimMapper;
     private final TaskMapper taskMapper;
     private final ClaimService claimService;
@@ -56,6 +60,11 @@ public class ReviewService {
         Task task = taskMapper.selectById(claim.getTaskId());
         if (task == null || !task.getPublisherId().equals(reviewerId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "只有任务发布者可以审核");
+        }
+        // 跨聚合校验：任务已取消/已过期/已结算时不允许再审核
+        if (!REVIEWABLE_TASK_STATUSES.contains(task.getStatus())) {
+            throw new BusinessException(ResultCode.CLAIM_NOT_REVIEWABLE,
+                    "任务当前状态（" + task.getStatus() + "）不可审核");
         }
 
         ClaimStatus claimStatus = ClaimStatus.of(claim.getStatus());
@@ -99,7 +108,12 @@ public class ReviewService {
         finalizeTaskIfNeeded(task, reviewerId, httpReq);
     }
 
-    private void finalizeTaskIfNeeded(Task task, Long operatorId, HttpServletRequest httpReq) {
+    /**
+     * 任务收尾判定：审核（本类 review）与定时任务（审核超时自动通过 / 接取超时取消）共用。
+     * 外部（定时任务）调用时 @Transactional 生效；review() 内部调用时已在同一事务中。
+     */
+    @Transactional
+    public void finalizeTaskIfNeeded(Task task, Long operatorId, HttpServletRequest httpReq) {
         long active = taskClaimMapper.selectCount(new LambdaQueryWrapper<TaskClaim>()
                 .eq(TaskClaim::getTaskId, task.getId())
                 .in(TaskClaim::getStatus, ClaimStatus.CLAIMED.name(), ClaimStatus.SUBMITTED.name()));
@@ -142,7 +156,14 @@ public class ReviewService {
                 .eq(TaskClaim::getTaskId, task.getId())
                 .eq(TaskClaim::getStatus, ClaimStatus.APPROVED.name()));
 
+        // 幂等：已生成过结算的 claim 跳过（定时任务重跑/并发收尾时不产生重复结算）
+        java.util.Set<Long> settledClaimIds = settlementMapper.selectList(
+                        new LambdaQueryWrapper<Settlement>().eq(Settlement::getTaskId, task.getId()))
+                .stream().map(Settlement::getClaimId).collect(java.util.stream.Collectors.toSet());
         for (TaskClaim c : approvedClaims) {
+            if (settledClaimIds.contains(c.getId())) {
+                continue;
+            }
             Settlement s = new Settlement();
             s.setClaimId(c.getId());
             s.setTaskId(task.getId());
