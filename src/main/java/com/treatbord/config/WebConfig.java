@@ -21,7 +21,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         // 限流在前：登录/接取/提交/上传（按 IP），匿名也受限
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/**")
+                .addPathPatterns("/api/**", "/files/**")
                 .order(1);
 
         // 鉴权在后

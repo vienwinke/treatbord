@@ -14,12 +14,14 @@ public interface TaskMapper extends BaseMapper<Task> {
 
     /**
      * 原子扣减名额（防超卖核心，docs/API_DESIGN.md §4.1）：
-     * 仅当任务仍在接取期（OPEN/IN_PROGRESS）且未满员时 +1，返回 0 行表示不可接取。
+     * 仅当任务仍在接取期（OPEN/IN_PROGRESS）、未满员、且未过接取/完成截止（DB NOW()）时 +1，
+     * 返回 0 行表示不可接取。
      * 说明：OPEN=尚未有人接取，IN_PROGRESS=有人接取但未满员，两者都应可继续扣减。
      */
     @Update("UPDATE task SET claimed_count = claimed_count + 1, version = version + 1 " +
             "WHERE id = #{taskId} AND claimed_count < quota " +
-            "AND status IN ('OPEN', 'IN_PROGRESS') AND deleted = 0")
+            "AND status IN ('OPEN', 'IN_PROGRESS') " +
+            "AND claim_deadline > NOW() AND deadline > NOW() AND deleted = 0")
     int incrementClaimedCount(@Param("taskId") Long taskId);
 
     /**
@@ -38,10 +40,4 @@ public interface TaskMapper extends BaseMapper<Task> {
                   @Param("fromStatus") String fromStatus,
                   @Param("toStatus") String toStatus);
 
-    /**
-     * 惰性过期：将已过接取截止仍 OPEN 的任务置为 EXPIRED（列表查询兜底）。
-     */
-    @Update("UPDATE task SET status = 'EXPIRED', version = version + 1 " +
-            "WHERE status = 'OPEN' AND claim_deadline < NOW() AND deleted = 0")
-    int expireOpenTasks();
 }

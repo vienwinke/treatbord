@@ -3,6 +3,7 @@ package com.treatbord.module.schedule.task;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.treatbord.module.config.service.AppConfigService;
 import com.treatbord.module.notify.service.NotificationService;
+import com.treatbord.module.review.service.ReviewService;
 import com.treatbord.module.task.entity.Task;
 import com.treatbord.module.task.entity.TaskClaim;
 import com.treatbord.module.task.enums.ClaimStatus;
@@ -39,6 +40,7 @@ public class ScheduledTasks {
     private final ClaimService claimService;
     private final AppConfigService appConfigService;
     private final NotificationService notificationService;
+    private final ReviewService reviewService;
     private final UserMapper userMapper;
 
     /**
@@ -49,18 +51,51 @@ public class ScheduledTasks {
     @Scheduled(cron = "0 * * * * *")
     public void expireTasks() {
         try {
-            // 接取截止已过仍 OPEN
-            int n1 = taskMapper.expireOpenTasks();
-            // 完成截止已过仍 IN_PROGRESS
-            int n2 = taskMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Task>()
-                    .set(Task::getStatus, TaskStatus.EXPIRED.name())
-                    .eq(Task::getStatus, TaskStatus.IN_PROGRESS.name())
-                    .lt(Task::getDeadline, LocalDateTime.now()));
+            int n1 = expireByStatus(TaskStatus.OPEN, "claim_deadline < NOW()", "接取截止已过自动过期");
+            int n2 = expireByStatus(TaskStatus.IN_PROGRESS, "deadline < NOW()", "完成截止已过自动过期");
             if (n1 > 0 || n2 > 0) {
                 log.info("[SCHED] expireTasks: OPEN→EXPIRED={}, IN_PROGRESS→EXPIRED={}", n1, n2);
             }
         } catch (Exception e) {
             log.error("[SCHED] expireTasks 失败", e);
+        }
+    }
+
+    /**
+     * 逐条 CAS 过期 + 写 task_status_log：
+     * 时间判定交给数据库 NOW()（避免应用时钟偏差），并补齐状态审计（AGENTS §6：所有迁移写 status_log）。
+     * 条件串是代码内常量（非用户输入），不存在注入风险。
+     */
+    private int expireByStatus(TaskStatus fromStatus, String timeCondition, String reason) {
+        List<Task> overdue = taskMapper.selectList(new LambdaQueryWrapper<Task>()
+                .eq(Task::getStatus, fromStatus.name())
+                .apply(timeCondition));
+        int n = 0;
+        for (Task t : overdue) {
+            if (taskMapper.casStatus(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name()) == 0) {
+                continue; // 已被并发处理
+            }
+            taskService.writeTaskLog(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name(), null, reason);
+            n++;
+        }
+        return n;
+    }
+
+    /**
+     * 定时任务收尾：自动通过 / 超时取消之后同样要判定任务该推进还是该过期，
+     * 否则任务会永久停在 IN_PROGRESS（settlement 永不生成）。
+     */
+    private void finalizeTasks(java.util.Set<Long> taskIds) {
+        for (Long taskId : taskIds) {
+            Task t = taskMapper.selectById(taskId);
+            if (t == null) {
+                continue;
+            }
+            try {
+                reviewService.finalizeTaskIfNeeded(t, null, null);
+            } catch (Exception e) {
+                log.warn("[SCHED] 任务收尾失败 task={}", taskId, e);
+            }
         }
     }
 
@@ -77,12 +112,14 @@ public class ScheduledTasks {
                     .eq(TaskClaim::getStatus, ClaimStatus.CLAIMED.name())
                     .lt(TaskClaim::getCreateTime, cutoff));
 
+            java.util.Set<Long> affectedTaskIds = new java.util.HashSet<>();
             for (TaskClaim c : overdue) {
                 int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.CLAIMED.name(),
                         ClaimStatus.CANCELLED.name());
                 if (updated == 0) {
                     continue; // 已被并发处理
                 }
+                affectedTaskIds.add(c.getTaskId());
                 taskMapper.decrementClaimedCount(c.getTaskId());
                 claimService.writeClaimLog(c.getId(), ClaimStatus.CLAIMED.name(),
                         ClaimStatus.CANCELLED.name(), null, "接取超时自动取消");
@@ -98,6 +135,7 @@ public class ScheduledTasks {
                 }
                 log.info("[SCHED] cancelOverdueClaims: claim={} 超时取消", c.getId());
             }
+            finalizeTasks(affectedTaskIds);
         } catch (Exception e) {
             log.error("[SCHED] cancelOverdueClaims 失败", e);
         }
@@ -120,12 +158,20 @@ public class ScheduledTasks {
                     .eq(TaskClaim::getStatus, ClaimStatus.SUBMITTED.name())
                     .lt(TaskClaim::getSubmittedAt, cutoff));
 
+            java.util.Set<Long> affectedTaskIds = new java.util.HashSet<>();
             for (TaskClaim c : overdue) {
                 int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.SUBMITTED.name(),
                         ClaimStatus.APPROVED.name());
                 if (updated == 0) {
                     continue;
                 }
+                affectedTaskIds.add(c.getTaskId());
+                // 与人工审核保持一致：回填审核时间与备注
+                TaskClaim up = new TaskClaim();
+                up.setId(c.getId());
+                up.setReviewedAt(LocalDateTime.now());
+                up.setReviewNote("审核超时自动通过");
+                taskClaimMapper.updateById(up);
                 claimService.writeClaimLog(c.getId(), ClaimStatus.SUBMITTED.name(),
                         ClaimStatus.APPROVED.name(), null, "审核超时自动通过");
                 notificationService.notify(c.getUserId(),
@@ -135,6 +181,7 @@ public class ScheduledTasks {
                         c.getTaskId());
                 log.info("[SCHED] autoApprove: claim={} 自动通过", c.getId());
             }
+            finalizeTasks(affectedTaskIds);
         } catch (Exception e) {
             log.error("[SCHED] autoApprove 失败", e);
         }

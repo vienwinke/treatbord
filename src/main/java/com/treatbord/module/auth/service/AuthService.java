@@ -72,14 +72,32 @@ public class AuthService {
     }
 
     /**
-     * 注销账号：匿名化 openid + 当前 token 失效。
+     * 注销账号：匿名化 openid + **撤销该用户全部会话**
+     * （只拉黑当前 token 会让其它设备继续可用到 7 天过期）。
      */
     public void deleteAccount(Long userId, String jti, HttpServletRequest httpReq) {
         userService.deleteUser(userId);
         if (jti != null) {
             tokenBlacklistService.blacklist(jti);
         }
+        revokeAllSessions(userId);
         auditService.record(userId, "DELETE_ACCOUNT", "user", userId, "注销账号(openid 已匿名化)", httpReq);
+    }
+
+    /** 撤销某用户全部会话：读取登录时登记的 jti 集合，逐个拉黑后删除集合。 */
+    private void revokeAllSessions(Long userId) {
+        String key = "user:" + userId + ":jtis";
+        try {
+            var jtis = redisTemplate.opsForSet().members(key);
+            if (jtis != null) {
+                for (Object j : jtis) {
+                    tokenBlacklistService.blacklist(String.valueOf(j));
+                }
+            }
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            log.warn("撤销全部会话失败 userId={}", userId, e);
+        }
     }
 
     /** 签发 JWT + 注册 jti + 审计，返回登录响应。 */

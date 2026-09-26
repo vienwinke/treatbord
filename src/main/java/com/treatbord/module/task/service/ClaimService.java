@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -63,13 +64,19 @@ public class ClaimService {
             if (t == null) {
                 throw new BusinessException(ResultCode.TASK_NOT_FOUND);
             }
-            boolean claimable = ClaimService.STATUS_OPEN.equals(t.getStatus())
-                    || "IN_PROGRESS".equals(t.getStatus());
-            if (claimable) {
-                // 状态可接取但原子扣减失败 ⇒ 名额已满
-                throw new BusinessException(ResultCode.TASK_FULL, "任务名额已满");
+            boolean claimable = STATUS_OPEN.equals(t.getStatus()) || "IN_PROGRESS".equals(t.getStatus());
+            if (!claimable) {
+                throw new BusinessException(ResultCode.TASK_NOT_CLAIMABLE);
             }
-            throw new BusinessException(ResultCode.TASK_NOT_CLAIMABLE);
+            // 状态可接取却扣减失败：区分「已过截止」与「名额已满」
+            // （时间条件已在原子 SQL 用 DB NOW() 判定，这里只为给出正确错误码）
+            LocalDateTime now = LocalDateTime.now();
+            boolean deadlinePassed = t.getClaimDeadline() == null || !t.getClaimDeadline().isAfter(now)
+                    || t.getDeadline() == null || !t.getDeadline().isAfter(now);
+            if (deadlinePassed) {
+                throw new BusinessException(ResultCode.TASK_NOT_CLAIMABLE, "任务已过接取/完成截止时间");
+            }
+            throw new BusinessException(ResultCode.TASK_FULL, "任务名额已满");
         }
 
         // 2. 读取任务快照（reward 结算快照、publisher 校验）
@@ -77,8 +84,7 @@ public class ClaimService {
 
         // 3. 防自接自单
         if (task.getPublisherId().equals(userId)) {
-            // 回滚名额（事务会回滚，这里显式回退更安全）
-            taskMapper.decrementClaimedCount(taskId);
+            // 无需手动回退：BusinessException 是运行时异常，@Transactional 会回滚本次原子扣减
             throw new BusinessException(ResultCode.SELF_CLAIM_FORBIDDEN);
         }
 
@@ -86,13 +92,11 @@ public class ClaimService {
         User user = userService.getById(userId);
         int threshold = appConfigService.getInt(CREDIT_THRESHOLD_KEY, 60);
         if (user.getCreditScore() < threshold) {
-            taskMapper.decrementClaimedCount(taskId);
             throw new BusinessException(ResultCode.CREDIT_NOT_ENOUGH);
         }
 
         // 5. 显式防重复（唯一索引兜底）
         if (taskClaimMapper.countActiveClaim(taskId, userId) > 0) {
-            taskMapper.decrementClaimedCount(taskId);
             throw new BusinessException(ResultCode.CLAIM_DUPLICATE);
         }
 

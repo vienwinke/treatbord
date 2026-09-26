@@ -103,9 +103,7 @@ public class TaskService {
      * 查询前惰性兜底：过期的 OPEN 任务置 EXPIRED。
      */
     public PageResult<TaskVO> list(String status, String keyword, long page, long pageSize) {
-        // 惰性过期（定时任务之外的查询兜底，docs/API_DESIGN.md §3.1）
-        taskMapper.expireOpenTasks();
-
+        // 过期统一由 ScheduledTasks.expireTasks() 处理（逐条 CAS + 审计），读接口不再写库
         Page<Task> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<Task> qw = new LambdaQueryWrapper<Task>()
                 .eq(status != null && !status.isBlank(), Task::getStatus, status)

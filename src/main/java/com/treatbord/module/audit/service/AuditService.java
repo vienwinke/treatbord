@@ -4,6 +4,7 @@ import com.treatbord.module.audit.entity.AuditLog;
 import com.treatbord.module.audit.entity.LoginLog;
 import com.treatbord.module.audit.mapper.AuditLogMapper;
 import com.treatbord.module.audit.mapper.LoginLogMapper;
+import com.treatbord.security.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ public class AuditService {
 
     private final AuditLogMapper auditLogMapper;
     private final LoginLogMapper loginLogMapper;
+    private final ClientIpResolver clientIpResolver;
 
     /** 记录登录（成功/失败） */
     public void recordLogin(Long userId, boolean success, String failReason, HttpServletRequest req) {
@@ -57,12 +59,7 @@ public class AuditService {
     }
 
     private String clientIp(HttpServletRequest req) {
-        if (req == null) return null;
-        String xff = req.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) {
-            return xff.split(",")[0].trim();
-        }
-        return req.getRemoteAddr();
+        return clientIpResolver.resolve(req);
     }
 
     private String truncate(String s, int max) {

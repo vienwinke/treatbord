@@ -30,16 +30,31 @@ public class LocalStorageService implements StorageService {
     @Value("${treatbord.storage.base-url:http://127.0.0.1:8080/files}")
     private String baseUrl;
 
+    /** 允许的业务目录白名单（与 FileController 一致，双保险防目录逃逸） */
+    private static final java.util.Set<String> ALLOWED_BIZ_TYPES =
+            java.util.Set.of("submission", "avatar");
+
     @Override
     public String store(MultipartFile file, String bizType) throws IOException {
+        if (bizType == null || !ALLOWED_BIZ_TYPES.contains(bizType)) {
+            throw new IOException("不支持的 bizType: " + bizType);
+        }
         String ext = extensionOf(file.getOriginalFilename());
         String yyyyMM = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String key = "biz/" + bizType + "/" + yyyyMM + "/" + uuid + "." + ext;
 
-        Path dir = Paths.get(localDir, "biz", bizType, yyyyMM);
+        // 路径归属校验：normalize 后必须仍在 upload-dir 之内
+        Path baseDir = Paths.get(localDir).toAbsolutePath().normalize();
+        Path dir = baseDir.resolve("biz").resolve(bizType).resolve(yyyyMM).normalize();
+        if (!dir.startsWith(baseDir)) {
+            throw new IOException("非法的存储路径");
+        }
         Files.createDirectories(dir);
-        Path target = dir.resolve(uuid + "." + ext);
+        Path target = dir.resolve(uuid + "." + ext).normalize();
+        if (!target.startsWith(baseDir)) {
+            throw new IOException("非法的存储路径");
+        }
         file.transferTo(target.toAbsolutePath());
         log.info("[STORAGE] 已存储 key={} size={}", key, file.getSize());
         return key;
