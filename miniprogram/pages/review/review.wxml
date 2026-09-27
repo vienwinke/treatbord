@@ -16,7 +16,8 @@
     <text class="sub-content">{{item.submission.content || '（无文字说明）'}}</text>
     <view wx:if="{{item.submission.fileUrls.length}}" class="img-grid">
       <image wx:for="{{item.submission.fileUrls}}" wx:for-item="url" wx:key="index"
-             class="img" src="{{url}}" mode="aspectFill" />
+             class="img" src="{{url}}" mode="aspectFill"
+             data-idx="{{index}}" binderror="onImgError" />
     </view>
   </view>
   <view wx:else class="sub-empty">尚未提交凭证</view>

@@ -38,6 +38,18 @@ Page({
       })
   },
 
+  /**
+   * 图片加载失败兜底：签名 URL 有效期 30 分钟，过期后服务端返回 403，
+   * <image> 只会静默失败。这里重新拉一次列表（拿新签名 URL）并重试一次；
+   * 用 _imgRetried 防止反复失败时进入死循环。
+   */
+  onImgError(e) {
+    if (this._imgRetried) return
+    this._imgRetried = true
+    console.warn('[review] 凭证图加载失败（可能签名 URL 已过期），重新拉取', e && e.detail)
+    this.load().then(() => { this._imgRetried = false }).catch(() => { this._imgRetried = false })
+  },
+
   /** 去互评（接取通过后，发布者评价接取者） */
   goPeerReview(e) {
     const { id, touid, tonickname } = e.currentTarget.dataset
