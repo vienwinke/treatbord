@@ -737,3 +737,78 @@ treatbord_schedule_runs_total{result="success",task="autoApprove"} 1.0
   * `BusinessMetricsTest`：接取 success/full 双标签、限流 rejected、审核决策+等待时长、定时任务 runs
   * `ObservabilityLoggingTest`：阈值覆盖为 0 时确实写出 `[SLOW-SQL]` / `[SLOW-API]`（用 logback `ListAppender` 捕获）
 - 运行时：`/actuator/prometheus` 实测输出见上；冒烟数据已清理（残留 0）
+---
+
+# 📅 2026-09-27 · 升级批次 B7：上线收口（压测 / 备份演练 / 文档一致性 / 前端清理）
+
+## 一、7-1 并发压测：200 并发抢 5 个名额 → 零超卖
+
+WSL 无 `wrk/ab/hey`，用 **Python 标准库**实现压测客户端（`ThreadPoolExecutor` + `Barrier` 同时发起 + 逐请求计时 + P50/P95/P99）。
+
+| 场景 | 请求数 | 吞吐 | P50 | P95 | P99 | 结果 |
+|---|---|---|---|---|---|---|
+| **200 并发抢 5 名额** | 200 | 551.8 req/s | 215.2ms | 288.6ms | 297.6ms | **成功 5 · code 2003（名额已满）195** |
+| 读接口（50 并发） | 1000 | 3205.2 req/s | 10.4ms | 25.7ms | 38.7ms | 100% 成功 |
+
+**三重证据**：
+1. **响应码**：`{ "0": 5, "2003": 195 }`
+2. **数据库**：`quota=5 / claimed_count=5 / claim 行数=5 / 去重用户=5 / status=IN_PROGRESS`
+3. **指标**：`treatbord_claim_result_total{result="success"}=5`、`{result="full"}=195`（与响应分布完全吻合）
+
+> 为什么写 P50 有 215ms：200 个请求抢**同一行**，都在等行锁 → 排队时间占主导，这正是"原子 SQL 串行化"的预期表现；
+> 读接口无锁竞争，P50 仅 10.4ms，两者对比也印证了热点行锁的存在。
+
+## 二、7-2 备份恢复演练：真实灾难模拟
+
+| 步骤 | 结果 |
+|---|---|
+| `mysqldump --no-tablespaces --single-transaction` | 44KB / **0.06s** / 15 张表 |
+| **删除全部表**（模拟灾难） | 剩余表数 **0**；业务查询 `ERROR 1146`（表不存在） |
+| 从备份还原 | **1.06s** / 退出码 0 |
+| 逐表校验 | **15/15 表行数完全一致**；Flyway `8/8 成功 V8`；关键表 + 新增配置键完整 |
+| 写入可用性 | 自增主键正常（新 id=639） |
+
+**RTO 实测 ≈ 1.1 秒**（单机 test 库规模）。
+
+### 演练中发现的三个环境问题（都已处理）
+
+| 问题 | 原因 | 处理 |
+|---|---|---|
+| `mysqldump` 退出码 2 | `app_user` 无 `PROCESS` 权限（dump tablespaces）+ 无 `EVENT` 权限 | 加 `--no-tablespaces --skip-routines --skip-events`（不加 `--routines/--events`） |
+| 无法新建演练库 | 无 root 通道；`app_user`/`db_migrate` 只有 `treatbord`、`treatbord_test` 的权限 | 改用**同库演练**（备份→删表→还原→校验），同样能证明可恢复性 |
+| 第一次"删表"没生效 | `DROP TABLE` 未指定库名 → `ERROR 1046 No database selected`，而错误被 `2>/dev/null` 吞掉 | 显式指定库/表名并**校验"剩余表数=0"**后才继续；这也说明演练必须**验证"灾难真的发生了"**，否则"还原成功"是假证据 |
+
+## 三、7-3 文档一致性
+
+| 文档 | 修正 |
+|---|---|
+| `README.md` | 33 接口 / 115 Java 文件 · 6.9k 行 / 15 页面 / **Flyway V1~V8** / 11 份文档 / 93 测试用例；新增"近期升级"章节（技术栈新增 + 能力清单） |
+| `docs/RUNBOOK.md` | 迁移版本修正 + 压测/备份演练记录 + 常用运维动作（解锁登录锁定、指标端点、签名密钥、备份命令） |
+| `docs/API_DESIGN.md` | 新增附录：审计查询接口、**签名 URL 约定**、429 登录锁定、`/actuator/prometheus` |
+| `docs/DB_DESIGN.md` | 新增附录：**V5~V8 迁移明细** + 本轮 `app_config` 键说明 |
+| `docs/CONSISTENCY_CHECKLIST.md`（新增） | **文档 ↔ 代码逐条核对表**，数字全部现场实测（含可重跑脚本） |
+
+> 说明：`LOG.md` / `LEARNING_PROGRESS.md` 是**历史日志**，其中的旧数字（104 文件 / 32 接口）是当日快照，故意保留不改，以免篡改历史。
+
+## 四、7-4 前端清理与兜底
+
+**修正一个计划错误**：原计划"删 login-preview + login-v2（16→14）"，但实测发现——
+**`login-v2` 才是在用的登录页**（`detail`/`notifications`/`my-claims` 等 5 处跳转都指向它），删掉会**直接导致无法登录**；
+真正无人引用的是 `login-preview`（全项目仅 `app.json` 出现）。
+
+因此：只删 **login-preview**（16 → **15** 页），`login-v2` 保留。
+
+**签名 URL 过期兜底**（`review` 页凭证图）：
+```js
+onImgError(e) {                       // <image binderror>
+  if (this._imgRetried) return        // 防死循环
+  this._imgRetried = true
+  this.load().then(() => { this._imgRetried = false })   // 重新拉取 → 拿新签名 URL
+}
+```
+验证：`node --check` 语法通过、`app.json` JSON 合法（15 页）、全项目无 `login-preview` 残留引用。
+
+## 五、验证
+
+- 最终回归：`mvn test` → **Tests run: 93, Failures: 0, Errors: 0** · BUILD SUCCESS
+- 压测/演练数据见上；冒烟数据已清理（压测用户 0 残留、限流阈值已恢复）

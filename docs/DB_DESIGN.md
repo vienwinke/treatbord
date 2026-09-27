@@ -275,3 +275,31 @@ WHERE id = ? AND claimed_count < quota AND status = 'OPEN'
 - [ ] 生产环境增量迁移脚本规范（Flyway/Liquibase，替代 DROP 重建）
 - [ ] 内容安全检测状态位（task/claim 若需"待检测"中间态，在提交/发布接口层实现）
 - [ ] admin 初始化账号密码需从环境变量注入（不入库明文）
+
+
+---
+
+## 附：迁移历史 V5~V8（2026-09-27）
+
+| 版本 | 文件 | 内容 |
+|---|---|---|
+| V5 | `V5__add_missing_config_keys.sql` | 补齐限流/缓存等缺失配置键 |
+| V6 | `V6__add_claim_scan_indexes.sql` | `task_claim` 扫描索引：`idx_claim_status_ctime(status, create_time)`、`idx_claim_status_submitted(status, submitted_at)` |
+| V7 | `V7__add_ratelimit_config_keys.sql` | 新增限流场景阈值：`taskcreate=10`、`report=5`、`review=20`、`notify=60`（每分钟） |
+| V8 | `V8__add_login_lock_config_keys.sql` | 登录失败锁定：`login.fail.threshold=5`、`login.fail.lock.minutes=15` |
+
+### 本轮新增/使用的 `app_config` 键
+
+| 键 | 默认值 | 用途 |
+|---|---|---|
+| `task.cache.ttl.seconds` | 300 | 任务缓存基础 TTL（实际值附加 0~60s 随机抖动） |
+| `login.rate.limit.per.minute` | 30 | 登录接口限流 |
+| `claim.rate.limit.per.minute` | 20 | 接取接口限流 |
+| `taskcreate.rate.limit.per.minute` | 10 | 发布任务限流 |
+| `report.rate.limit.per.minute` | 5 | 举报接口限流 |
+| `review.rate.limit.per.minute` | 20 | 互评接口限流 |
+| `notify.rate.limit.per.minute` | 60 | 通知接口限流 |
+| `login.fail.threshold` | 5 | 登录失败次数阈值（IP 维度硬锁） |
+| `login.fail.lock.minutes` | 15 | 登录锁定时长 |
+
+> 注：`redis` 中的运行态键（`cache:task:*`、`cache:task:listver`、`ratelimit:*`、`login:fail:*`、`token:blacklist:*`）不入库，属缓存/风控数据。

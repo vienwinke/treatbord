@@ -455,3 +455,33 @@
 | 2 | 管理员「恢复已取消任务」是否开放 | 保守：不开放（本版仅下架）|
 | 3 | 驳回凭证是否扣信用分、扣多少 | 默认扣 5（app_config 可配）|
 | 4 | 通用通知「read-all」是否需要 | 建议要，前端省逐条点 |
+
+---
+
+## 附：2026-09-27 新增/变更的接口与约定
+
+### 新增接口
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/api/admin/audit-logs` | ADMIN（`@RequireAdmin`） | 审计日志查询，参数 `action`、`userId`、`page`、`pageSize`（默认 20），返回 `PageResult<AuditLogVO>` |
+
+### 文件访问：签名 URL 约定
+
+- 上传响应与凭证查询响应中的 `fileUrls` 均为**签名 URL**：`{host}/files/biz/{type}/{yyyyMM}/{name}?exp={秒级时间戳}&sig={Base64Url(HMAC-SHA256)}`
+- 有效期 `treatbord.storage.signed-url.ttl-seconds`（默认 **1800 秒**）
+- 生产 `treatbord.storage.signed-url.required=true`：缺失/伪造/过期签名一律 **HTTP 403**（文件直读用真实状态码，因为小程序 `<image>` 不解析 JSON body）
+- 授权规则：**上传者 + 该凭证的接取者与任务发布者**（与 `GET /api/claims/{id}` 的可见性完全一致）
+- 前端需处理 403：`<image binderror>` → 重新拉取详情拿新签名 URL 重试一次
+
+### 错误码补充
+
+| code | HTTP | 场景 |
+|---|---|---|
+| 429 | 200/429 | 限流拒绝；**登录失败锁定**（IP 维度，阈值 `login.fail.threshold`，锁定时长 `login.fail.lock.minutes`） |
+
+### 可观测
+
+| 路径 | 说明 |
+|---|---|
+| `/actuator/prometheus` | 指标端点（含 `treatbord_*` 业务指标）；生产建议网关层限制为内网/白名单 |

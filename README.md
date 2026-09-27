@@ -21,9 +21,9 @@
 
 Treatbord 是一个面向微信小程序的任务接取平台。用户可以发布悬赏任务（如拍照、取快递、翻译资料），其他用户接取并在完成后提交凭证，发布者审核通过后进入结算流程。
 
-项目采用**前后端分离**架构：后端提供 RESTful API（32 个接口），前端为微信小程序原生开发（16 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
+项目采用**前后端分离**架构：后端提供 RESTful API（33 个接口），前端为微信小程序原生开发（15 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
 
-**规模**：后端 104 个 Java 文件 / 5.5k 行 · 32 个接口 · 14 张表 · 8 份设计文档 · 小程序 16 个页面
+**规模**：后端 115 个 Java 文件 / 6.9k 行 · 33 个接口 · 14 张表 · 11 份设计文档 · 小程序 15 个页面 · 93 个自动化测试用例
 
 ---
 
@@ -182,7 +182,7 @@ StartupValidator.afterPropertiesSet() {
 | 构建 | Maven | 3.9 |
 | ORM | MyBatis-Plus | 3.5.12 |
 | 数据库 | MySQL | 8.4 (utf8mb4 / Asia/Shanghai) |
-| 数据库迁移 | Flyway | V1~V4 |
+| 数据库迁移 | Flyway | V1~V8 |
 | 缓存 / 限流 | Redis | 8.0 |
 | 认证 | jjwt (JWT HS256) | 0.12.6 |
 | 密码 | spring-security-crypto (BCrypt) | — |
@@ -260,7 +260,7 @@ treatbord/
 │       └── schedule/        # 定时任务
 ├── src/main/resources/
 │   ├── application*.yml     # 多环境配置
-│   └── db/migration/        # Flyway 迁移脚本 V1~V4
+│   └── db/migration/        # Flyway 迁移脚本 V1~V8
 ├── miniprogram/             # 微信小程序（16 页面）
 ├── database/                # 建库脚本与种子数据
 └── docs/                    # 设计文档（8 份）
@@ -270,7 +270,7 @@ treatbord/
 
 ## 📡 API 概览
 
-共 **32 个接口**，统一响应体 `Result<T>`，`page/pageSize` 分页（上限 20）。
+共 **33 个接口**，统一响应体 `Result<T>`，`page/pageSize` 分页（上限 20）。
 
 | 模块 | 接口 |
 |---|---|
@@ -311,7 +311,7 @@ treatbord/
 
 | 文档 | 内容 |
 |---|---|
-| [API_DESIGN.md](docs/API_DESIGN.md) | 32 个接口的完整规格（参数/响应/错误码/业务规则）|
+| [API_DESIGN.md](docs/API_DESIGN.md) | 33 个接口的完整规格（参数/响应/错误码/业务规则）|
 | [DB_DESIGN.md](docs/DB_DESIGN.md) | 14 张表设计、索引策略、设计决策记录 |
 | [SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | 上架前安全审核：越权/注入/文件上传/密钥/可靠性 |
 | [STANDARDIZATION_PLAN.md](docs/STANDARDIZATION_PLAN.md) | 对标企业级工程结构的标准化改造方案 |
@@ -355,3 +355,32 @@ treatbord/
 ## 📄 License
 
 MIT
+
+
+---
+
+## 近期升级（2026-09-27）
+
+### 技术栈新增
+
+| 用途 | 技术 | 说明 |
+|---|---|---|
+| 文件访问授权 | HMAC-SHA256 签名 URL | `/files/**` 支持 `exp`+`sig` 校验（生产强制开启） |
+| 指标监控 | Micrometer + Prometheus | `/actuator/prometheus`，含自定义业务指标 |
+| 限流原子性 | Redis Lua 脚本 | `INCR` + 首次 `PEXPIRE` 原子执行，避免无 TTL 脏 key |
+| 缓存 | Redis Cache-Aside | 任务列表/详情缓存，版本号失效 + 空值防穿透 + 随机 TTL |
+| 登录风控 | Redis 计数 | IP 维度硬锁 + 账号维度只累计（防恶意锁定他人账号） |
+| 慢查询/慢接口 | MyBatis 插件 + Servlet Filter | 阈值可配，日志只记 SQL id 不记参数 |
+
+### 能力清单
+
+| 能力 | 接口/位置 | 说明 |
+|---|---|---|
+| 文件签名 URL | `FileUrlSigner` | 读时签名；授权 = 上传者 + 接取双方（与凭证可见性一致） |
+| 审计日志查询 | `GET /api/admin/audit-logs` | 支持 `action` / `userId` 筛选 + 分页 |
+| 业务指标 | `BusinessMetrics` | 接取结果、限流拒绝、审核决策与时长、定时任务结果 |
+| 慢接口日志 | `SlowRequestLoggingFilter` | 覆盖 `/files/**`、`/actuator/**` |
+| 慢 SQL 日志 | `SlowSqlInterceptor` | 挂 `StatementHandler`（Executor 4 参 query 在本链路不触发） |
+
+> 详细改动与验证证据见 [docs/LOG.md](docs/LOG.md)；文档与代码一致性核对表见
+> [docs/CONSISTENCY_CHECKLIST.md](docs/CONSISTENCY_CHECKLIST.md)。

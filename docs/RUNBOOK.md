@@ -135,8 +135,8 @@ treatbord/
 │   └── module/<业务>/        ← auth user task submission review ...
 ├── src/main/resources/
 │   ├── application*.yml      ← 多环境配置
-│   └── db/migration/         ← Flyway V1~V4
-└── miniprogram/              ← 微信小程序（16 个页面）
+│   └── db/migration/         ← Flyway V1~V8
+└── miniprogram/              ← 微信小程序（15 个页面）
 ```
 
 ---
@@ -150,3 +150,56 @@ treatbord/
 | 任意字符串 | 自动创建新用户 |
 
 > mock 登录由 `treatbord.wx.enabled=false` 控制（仅开发环境）。
+
+
+---
+
+## 上线前演练记录（2026-09-27）
+
+### 1. 并发压测（200 并发抢 5 个名额）
+
+工具：Python 标准库并发客户端（`/tmp/loadtest.py`，WSL 无 wrk/ab）
+
+| 场景 | 请求数 | 吞吐 | P50 | P95 | P99 | 结果 |
+|---|---|---|---|---|---|---|
+| 200 并发抢 5 名额 | 200 | 551.8 req/s | 215.2ms | 288.6ms | 297.6ms | **成功 5 · 名额已满 195 · 零超卖** |
+| 读接口 50 并发 | 1000 | 3205.2 req/s | 10.4ms | 25.7ms | 38.7ms | 100% 成功 |
+
+**数据库侧铁证**：`quota=5 / claimed_count=5 / claim 行数=5 / 去重用户=5`，任务状态 `IN_PROGRESS`；
+指标侧 `treatbord_claim_result_total{result="success"}=5`、`{result="full"}=195` —— 与响应码分布完全一致。
+
+> 压测前置动作：临时把 `login/claim` 的限流阈值调到 1000（200 次请求同源 IP 会先被限流器拦掉），压测后**已恢复**（login=30 / claim=20）。
+
+### 2. 备份恢复演练（模拟灾难）
+
+| 步骤 | 结果 |
+|---|---|
+| `mysqldump --no-tablespaces --single-transaction` | 44KB / 0.06s / 15 张表 |
+| 删除全部表（模拟数据全丢） | 剩余表数 **0**，业务查询报 `ERROR 1146` |
+| 从备份还原 | **1.06s**，退出码 0 |
+| 逐表校验 | **15/15 张表行数完全一致**；Flyway `8/8 成功`；关键表与新增配置键完整 |
+| 写入可用性 | 自增主键正常（新插入 id=639） |
+
+**RTO 实测 ≈ 1.1 秒**（单机 test 库规模），备份体积 44KB。
+
+### 3. 常用运维动作
+
+```bash
+# 解除某 IP 的登录失败锁定（15 分钟自动过期，也可手动清）
+redis-cli --scan --pattern 'login:fail:*'        # 查看计数
+redis-cli DEL login:fail:ip:<IP>                 # 手动解锁
+
+# 指标 / 健康检查
+curl -s http://127.0.0.1:8080/actuator/health
+curl -s http://127.0.0.1:8080/actuator/prometheus | grep treatbord_
+
+# 慢接口 / 慢 SQL 阈值调整（application-*.yml）
+treatbord.observability.slow-api-ms / slow-sql-ms
+
+# 文件签名：生产必须注入密钥（否则启动校验拒绝）
+export STORAGE_SIGN_SECRET='<32+ 字节随机串>'
+# 轮换密钥会使所有已签发 URL 立即失效（当前未实现双密钥平滑轮换）
+
+# 备份
+mysqldump -u <user> -p --no-tablespaces --single-transaction --set-gtid-purged=OFF <db> > backup.sql
+```
