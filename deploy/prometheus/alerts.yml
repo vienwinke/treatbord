@@ -1,0 +1,79 @@
+# 告警规则：把 B6 产出的业务指标变成"会响的告警"
+groups:
+  - name: treatbord-availability
+    rules:
+      - alert: TreatbordDown
+        expr: up{job="treatbord"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Treatbord 应用不可达"
+          description: "Prometheus 已 1 分钟抓不到 /actuator/prometheus，检查容器与 Nginx。"
+
+      - alert: TreatbordHighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) > 0.5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "5xx 比例升高"
+          description: "近 5 分钟 5xx 速率 > 0.5/s，查看 [SLOW-API] 与异常日志。"
+
+      - alert: TreatbordSlowRequest
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "接口 P95 超过 1s"
+          description: "查看慢接口日志（treatbord.observability.slow-api-ms）与慢 SQL 日志。"
+
+  - name: treatbord-business
+    rules:
+      - alert: TreatbordRateLimitSpike
+        expr: sum(rate(treatbord_ratelimit_rejected_total[5m])) > 5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "限流拒绝激增（可能被刷）"
+          description: "按 scope 查看 treatbord_ratelimit_rejected_total，必要时下调阈值或封禁来源 IP。"
+
+      - alert: TreatbordClaimFullSpike
+        expr: sum(rate(treatbord_claim_result_total{result="full"}[5m])) > 10
+        for: 5m
+        labels: { severity: info }
+        annotations:
+          summary: "接取失败（名额已满）激增"
+          description: "可能是热门任务被抢，也可能是脚本刷单；结合来源 IP 与会话日志判断。"
+
+      - alert: TreatbordScheduleTaskFailed
+        expr: increase(treatbord_schedule_runs_total{result="failure"}[10m]) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "定时任务执行失败"
+          description: "过期任务/超时取消/自动通过/对账任务抛异常，查看 [SCHED] 错误日志。"
+
+      - alert: TreatbordReviewBacklog
+        expr: sum(rate(treatbord_review_decision_total[1h])) == 0 and sum(treatbord_claim_result_total{result="success"}) > 0
+        for: 3h
+        labels: { severity: warning }
+        annotations:
+          summary: "长时间无审核动作"
+          description: "接取成功但近 1 小时没有任何审核决策，可能有凭证积压（注意审核超时会自动通过）。"
+
+  - name: treatbord-resources
+    rules:
+      - alert: TreatbordJvmHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) > 0.85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "JVM 堆使用率 >85%"
+          description: "检查内存泄漏或调大容器内存/堆上限（JAVA_OPTS -XX:MaxRAMPercentage）。"
+
+      - alert: TreatbordDbPoolWaiting
+        expr: hikaricp_connections_pending > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "数据库连接池出现排队"
+          description: "连接池被占满：排查长事务（本项目已把外部调用移出事务）与慢 SQL。"

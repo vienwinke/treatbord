@@ -37,15 +37,21 @@
 
 > 生产启动前由 `StartupValidator` 校验 11 项必需变量与非默认密钥强度，**缺项直接拒绝启动**。
 
-## 三、⚠️ 目前缺失的部署产物（上线前必须补）
+## 三、部署产物（已补齐，位于 `deploy/`）
 
-| 产物 | 现状 | 作用 |
+| 产物 | 位置 | 作用 |
 |---|---|---|
-| `Dockerfile` / `.dockerignore` | ❌ 缺失 | 镜像构建（多阶段：maven → JRE 21） |
-| `docker-compose.yml` 或 systemd unit | ❌ 缺失 | 一键起服务 / 进程守护与自启 |
-| Nginx 配置 | ❌ 缺失 | HTTPS 终结、反向代理、**`/actuator/prometheus` 限内网** |
-| 备份定时任务（cron/脚本） | ❌ 缺失（演练已通过，未固化为脚本） | 每日 `mysqldump` + 保留策略 |
-| Prometheus/Grafana 配置 | ❌ 缺失（指标已产出） | 监控与告警规则 |
+| Dockerfile（多阶段） | `deploy/Dockerfile` | maven 构建 → JRE 21 运行；**非 root** + HEALTHCHECK + 时区 |
+| 编排 | `deploy/docker-compose.yml` | nginx + app + mysql + redis（`--profile monitoring` 启用 prometheus）；app **不发布端口** |
+| Nginx | `deploy/nginx/treatbord.conf.template` | HTTPS 终结、反代、**指标/健康端点限内网**、`/files` 走应用保留签名校验 |
+| 备份 | `deploy/scripts/backup.sh` | 容器内 `mysqldump` → gzip → 校验表数 → 保留 N 天 |
+| 告警 | `deploy/prometheus/{prometheus,alerts}.yml` | 抓取 + 9 条规则（不可达/5xx/慢接口/限流激增/定时失败/堆内存/连接池排队） |
+| 环境变量模板 | `deploy/.env.example` | 生产变量（含 `TRUSTED_PROXIES`） |
+| 部署说明 | `deploy/README.md` | 首次部署 / 验证 / 运维 / 注意事项 |
+
+> ⚠️ **反向代理后必须设置 `TRUSTED_PROXIES`**（默认 Docker 网段 `172.16.0.0/12`）：
+> 应用只采信来自可信网段的 `X-Forwarded-For`，并取"从右往左第一个不可信地址"，
+> 否则限流会把所有用户当成同一 IP（这是本轮一并修掉的真实风险）。
 
 ## 四、微信侧（平台配置，不在仓库）
 
@@ -68,7 +74,7 @@
 | 生产配置安全 | ✅ | springdoc 关闭 · 签名强制 · 密钥全走环境变量 · 11 项启动校验 |
 | 密钥不入仓 | ✅ | 全仓扫描 0 命中 |
 | 文档一致性 | ✅ | 33 接口 / 115 文件 / 15 页面 / V1~V8 |
-| **部署产物** | ❌ | 见第三节 |
+| **部署产物** | ✅ | CI `deploy` 作业：`compose config` + `nginx -t` + **真实构建镜像** |
 
 ## 六、绝对不能入仓（已由 .gitignore 拦截）
 

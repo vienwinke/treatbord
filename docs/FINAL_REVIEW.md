@@ -54,7 +54,7 @@ Timer.builder("treatbord.review.wait")
 
 | 项 | 级别 | 说明 | 归属 |
 |---|---|---|---|
-| 部署产物缺失（Dockerfile / compose / systemd / Nginx / 备份 cron） | P1 | 见 [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md) §3 | 我（下一步可补） |
+| 部署产物 | ✅ 已补齐 | `deploy/`：Dockerfile · compose · Nginx · 备份脚本 · 告警规则（CI 验证） | 已完成 |
 | 类目资质未确认 | **P0** | 上架硬门槛 | 你（外部） |
 | 微信真实凭证未接（AppID/Secret） | P1 | 现走 mock 登录 / 内容安全 | 你（外部） |
 | demo 库 `treatbord` 停在 V4 | P2 | 下次以该库启动会自动迁移到 V8 | 无需处理 |

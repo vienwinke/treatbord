@@ -236,7 +236,7 @@ cp .env.example .env.local
 
 > 开发环境使用 mock 登录：任意 `code` 即可创建用户（如 `test1`）。
 
-**详细启动/排障指南**：[docs/RUNBOOK.md](docs/RUNBOOK.md)
+**详细启动/排障指南**：[docs/RUNBOOK.md](docs/RUNBOOK.md)　|　**生产部署（Docker）**：[deploy/README.md](deploy/README.md)
 
 ---
 
@@ -317,7 +317,7 @@ treatbord/
 | [DB_DESIGN.md](docs/DB_DESIGN.md) | 14 张表设计、索引策略、设计决策记录 |
 | [SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | 上架前安全审核：越权/注入/文件上传/密钥/可靠性 |
 | [RUNBOOK.md](docs/RUNBOOK.md) | 启动/停止/排障手册（含压测/备份演练记录与运维动作） |
-| [GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md) | **上线清单**：所需文件、生产环境变量、缺失的部署产物 |
+| [GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md) | **上线清单**：所需文件、生产环境变量、部署产物（Docker 路线） |
 | [CONSISTENCY_CHECKLIST.md](docs/CONSISTENCY_CHECKLIST.md) | 文档 ↔ 代码一致性核对表（数字全部实测） |
 | [FINAL_REVIEW.md](docs/FINAL_REVIEW.md) | 最终代码总检报告（检查项、发现的 bug 与教训） |
 

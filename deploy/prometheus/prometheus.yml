@@ -1,0 +1,16 @@
+# Prometheus 抓取配置（部署时随 --profile monitoring 启动）
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: treatbord
+
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+
+scrape_configs:
+  # 应用指标（业务指标 + JVM + HTTP + 连接池）
+  - job_name: treatbord
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]

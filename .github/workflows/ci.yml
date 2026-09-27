@@ -59,3 +59,40 @@ jobs:
           JWT_SECRET: ci-only-secret-key-0123456789-abcdefghij
           PASSWORD_PEPPER: ci-only-pepper
         run: mvn -B verify
+
+  deploy:
+    name: Deploy artifacts (image + nginx + compose)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 1) 编排文件语法与变量插值校验（不启动容器）
+      - name: Validate docker-compose
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q
+
+      # 2) 渲染 Nginx 模板并校验语法（证书用自签占位；upstream 名 app 指向本机以便解析）
+      - name: Prepare dummy certs
+        run: |
+          mkdir -p deploy/certs deploy/certbot-www
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=example.com" \
+            -keyout deploy/certs/privkey.pem -out deploy/certs/fullchain.pem 2>/dev/null
+
+      - name: Validate nginx config
+        run: |
+          docker run --rm --add-host app:127.0.0.1 \
+            -e DOMAIN=example.com \
+            -v "$PWD/deploy/nginx/treatbord.conf.template:/etc/nginx/templates/treatbord.conf.template:ro" \
+            -v "$PWD/deploy/nginx/proxy_headers.conf:/etc/nginx/snippets/proxy_headers.conf:ro" \
+            -v "$PWD/deploy/certs:/etc/nginx/certs:ro" \
+            nginx:1.27-alpine nginx -t
+
+      # 3) 真实构建后端镜像（验证 Dockerfile 可用）
+      - name: Build backend image
+        run: docker build -f deploy/Dockerfile -t treatbord/app:ci .
+
+      - name: Inspect image
+        run: |
+          docker image inspect treatbord/app:ci --format \
+            '"'"'镜像大小={{.Size}} 健康检查={{if .Config.Healthcheck}}已配置{{else}}缺失{{end}} 运行用户={{.Config.User}}'"'"' 

@@ -1,0 +1,104 @@
+# ============================================================
+# Nginx 反向代理（官方镜像的 envsubst 会把 ${DOMAIN} 替换为环境变量值；
+# $host / $request_uri 等 nginx 变量不会被替换 —— envsubst 只处理环境里存在的键）
+# 挂载位置：/etc/nginx/templates/treatbord.conf.template
+# ============================================================
+
+upstream treatbord_app {
+    server app:8080;
+    keepalive 32;
+}
+
+# 文件直读的本地缓存（同样的签名 URL 短时间内可命中缓存，减轻应用压力）
+proxy_cache_path /var/cache/nginx/files levels=1:2 keys_zone=files_cache:10m max_size=500m inactive=30m;
+
+# ---------- HTTP：仅用于 ACME 挑战与跳转 HTTPS ----------
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    server_tokens off;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---------- HTTPS ----------
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+    server_tokens off;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1h;
+
+    # 与 application.yml 的 spring.servlet.multipart.max-request-size=20MB 对齐
+    client_max_body_size 20m;
+    client_body_timeout  60s;
+
+    # 安全响应头
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # ---------- 指标端点：仅内网/本机可达（B6 只做了暴露，这里补访问限制）----------
+    location = /actuator/prometheus {
+        allow 127.0.0.1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+        proxy_pass http://treatbord_app;
+        include /etc/nginx/snippets/proxy_headers.conf;
+    }
+
+    # ---------- 健康检查：仅内网（供负载均衡/监控）----------
+    location = /actuator/health {
+        allow 127.0.0.1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+        proxy_pass http://treatbord_app;
+        include /etc/nginx/snippets/proxy_headers.conf;
+    }
+
+    # 其它 actuator 端点一律拒绝
+    location /actuator/ {
+        deny all;
+    }
+
+    # ---------- 文件直读：仍走应用（保留 exp+sig 签名校验，Nginx 不直读磁盘绕过授权）----------
+    location /files/ {
+        proxy_pass http://treatbord_app;
+        include /etc/nginx/snippets/proxy_headers.conf;
+
+        proxy_cache files_cache;
+        proxy_cache_valid 200 10m;
+        proxy_cache_use_stale error timeout updating;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
+        expires 10m;
+    }
+
+    # ---------- 业务接口 ----------
+    location / {
+        proxy_pass http://treatbord_app;
+        include /etc/nginx/snippets/proxy_headers.conf;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    30s;
+        proxy_send_timeout    30s;
+        proxy_buffering on;
+    }
+}

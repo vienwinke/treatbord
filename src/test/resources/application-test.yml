@@ -49,6 +49,7 @@ treatbord:
   wx:
     enabled: false
   security:
+    trusted-proxies: ${TRUSTED_PROXIES:}
     password-pepper: ${PASSWORD_PEPPER:test-pepper}
     content-check-enabled: false
 

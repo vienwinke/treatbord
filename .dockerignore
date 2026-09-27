@@ -1,0 +1,21 @@
+# 构建上下文排除：减小体积、避免把本地/敏感文件带进镜像
+.git
+.github
+.idea
+.vscode
+.m2
+target
+uploads
+.preview
+docs
+miniprogram
+*.log
+.env
+.env.*
+!.env.example
+deploy/certs
+deploy/prometheus/data
+deploy/.env
+README.md
+AGENTS.md
+LICENSE

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  镜像构建期使用的 Maven 设置（阿里云公共仓库加速）。
+  容器内路径：/root/.m2/settings.xml（见 deploy/Dockerfile 的 COPY）
+  本地开发仍可使用 settings-mirror.xml（不入仓）。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <name>Aliyun Public</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

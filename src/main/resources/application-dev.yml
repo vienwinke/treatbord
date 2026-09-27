@@ -57,6 +57,8 @@ treatbord:
     secret: ${WX_SECRET:}
     code2session-url: https://api.weixin.qq.com/sns/jscode2session
   security:
+    # 可信代理网段（CIDR，逗号分隔）；开发直连，不信任任何代理头（防伪造 XFF 绕过限流）
+    trusted-proxies: ${TRUSTED_PROXIES:}
     password-pepper: ${PASSWORD_PEPPER:dev-pepper-change-me}
     content-check-enabled: ${CONTENT_CHECK_ENABLED:false}
 

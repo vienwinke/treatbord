@@ -34,3 +34,10 @@ uploads/
 miniprogram/project.private.config.json
 # 微信云开发调试残留
 miniprogram/.cloudbase/
+
+# 部署本地产物（不入 git）
+deploy/.env
+deploy/certs/
+deploy/certbot-www/
+deploy/backups/
+deploy/prometheus/data/
