@@ -39,6 +39,10 @@ spring:
     clean-disabled: true            # 生产禁止 clean
 
 treatbord:
+  # 可观测性阈值（慢接口 / 慢 SQL）
+  observability:
+    slow-api-ms: 800
+    slow-sql-ms: 500
   jwt:
     secret: ${JWT_SECRET:}          # 空默认 -> StartupValidator 校验并给出友好提示
   storage:
@@ -72,7 +76,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health             # 生产只暴露 health
+        include: health,prometheus  # prometheus 指标：生产建议在网关层限制为内网/白名单访问
 
 logging:
   level:

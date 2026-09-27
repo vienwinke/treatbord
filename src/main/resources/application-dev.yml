@@ -34,6 +34,10 @@ spring:
     validate-on-migrate: true
 
 treatbord:
+  # 可观测性阈值（慢接口 / 慢 SQL）
+  observability:
+    slow-api-ms: 500
+    slow-sql-ms: 300
   jwt:
     # 仅开发默认值；生产（prod）必须环境变量注入且经启动校验
     secret: ${JWT_SECRET:dev-only-change-me-32bytes-secret-key-0001}
@@ -60,7 +64,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
 logging:
   level:

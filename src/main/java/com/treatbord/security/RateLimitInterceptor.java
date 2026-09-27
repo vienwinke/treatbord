@@ -2,6 +2,7 @@ package com.treatbord.security;
 
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
+import com.treatbord.config.BusinessMetrics;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpMethod;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,6 +20,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimitService rateLimitService;
     private final ClientIpResolver clientIpResolver;
+    private final BusinessMetrics businessMetrics;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -27,6 +29,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
         if (!rateLimitService.tryAcquire(scope, clientIpResolver.resolve(request))) {
+            businessMetrics.rateLimitRejected(scope);
             throw new BusinessException(ResultCode.TOO_MANY_REQUESTS);
         }
         return true;

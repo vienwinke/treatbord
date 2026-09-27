@@ -31,6 +31,9 @@ spring:
     validate-on-migrate: true
 
 treatbord:
+  observability:
+    slow-api-ms: 500
+    slow-sql-ms: 300
   jwt:
     secret: ${JWT_SECRET:test-only-secret-key-0123456789-abcdefghij}
     expire-seconds: 604800
@@ -53,7 +56,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
 
 logging:
   level:

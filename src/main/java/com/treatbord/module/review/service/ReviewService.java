@@ -51,6 +51,7 @@ public class ReviewService {
     private final AppConfigService appConfigService;
     private final UserMapper userMapper;
     private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
+    private final com.treatbord.config.BusinessMetrics businessMetrics;
 
     /**
      * 审核凭证 approve/reject。
@@ -110,6 +111,11 @@ public class ReviewService {
             auditService.record(reviewerId, "REVIEW_" + target.name(), "claim", claimId,
                     "审核凭证: " + action, httpReq);
         });
+
+        // 业务指标：审核决策 + "提交 → 审核"的等待时长
+        Long waitSeconds = claim.getSubmittedAt() == null ? null
+                : java.time.Duration.between(claim.getSubmittedAt(), LocalDateTime.now()).getSeconds();
+        businessMetrics.reviewDecision(target.name(), waitSeconds);
 
         finalizeTaskIfNeeded(task, reviewerId, httpReq);
         // 审核结果可能推进任务状态（REVIEWING / SETTLED / EXPIRED）→ 失效任务缓存

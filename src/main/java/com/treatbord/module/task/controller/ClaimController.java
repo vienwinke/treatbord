@@ -1,7 +1,9 @@
 package com.treatbord.module.task.controller;
 
+import com.treatbord.common.BusinessException;
 import com.treatbord.common.PageResult;
 import com.treatbord.common.Result;
+import com.treatbord.config.BusinessMetrics;
 import com.treatbord.module.task.dto.ClaimVO;
 import com.treatbord.module.task.service.ClaimService;
 import com.treatbord.security.UserContext;
@@ -24,12 +26,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClaimController {
 
     private final ClaimService claimService;
+    private final BusinessMetrics metrics;
 
     /** 4.1 接取任务 */
     @PostMapping("/tasks/{id}/claim")
     public Result<Long> claim(@PathVariable Long id, HttpServletRequest httpReq) {
-        Long claimId = claimService.claim(id, UserContext.userId(), httpReq);
-        return Result.ok(claimId);
+        try {
+            Long claimId = claimService.claim(id, UserContext.userId(), httpReq);
+            metrics.claimResult("success");
+            return Result.ok(claimId);
+        } catch (BusinessException e) {
+            // 指标：把错误码映射为低基数标签（ful/not_claimable/duplicate/...）
+            metrics.claimResult(BusinessMetrics.claimResultTag(e.getCode()));
+            throw e;
+        }
     }
 
     /** 4.2 取消接取 */

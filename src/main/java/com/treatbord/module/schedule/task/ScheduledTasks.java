@@ -43,6 +43,7 @@ public class ScheduledTasks {
     private final ReviewService reviewService;
     private final UserMapper userMapper;
     private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
+    private final com.treatbord.config.BusinessMetrics businessMetrics;
 
     /** 分批处理的批大小：避免一次性把全量数据读进内存（OOM 隐患） */
     private static final int BATCH_SIZE = 500;
@@ -63,8 +64,10 @@ public class ScheduledTasks {
             if (n1 > 0 || n2 > 0) {
                 log.info("[SCHED] expireTasks: OPEN→EXPIRED={}, IN_PROGRESS→EXPIRED={}", n1, n2);
             }
+            businessMetrics.scheduleRun("expireTasks", true, n1 + n2);
         } catch (Exception e) {
             log.error("[SCHED] expireTasks 失败", e);
+            businessMetrics.scheduleRun("expireTasks", false, 0);
         }
     }
 
@@ -179,8 +182,10 @@ public class ScheduledTasks {
                 log.info("[SCHED] cancelOverdueClaims: 本轮共取消 {} 条超时接取", total);
             }
             finalizeTasks(affectedTaskIds);
+            businessMetrics.scheduleRun("cancelOverdueClaims", true, total);
         } catch (Exception e) {
             log.error("[SCHED] cancelOverdueClaims 失败", e);
+            businessMetrics.scheduleRun("cancelOverdueClaims", false, 0);
         }
     }
 
@@ -239,8 +244,10 @@ public class ScheduledTasks {
                 log.info("[SCHED] autoApprove: 本轮自动通过 {} 条", total);
             }
             finalizeTasks(affectedTaskIds);
+            businessMetrics.scheduleRun("autoApprove", true, total);
         } catch (Exception e) {
             log.error("[SCHED] autoApprove 失败", e);
+            businessMetrics.scheduleRun("autoApprove", false, 0);
         }
     }
 
@@ -281,8 +288,10 @@ public class ScheduledTasks {
                 }
             }
             log.debug("[SCHED] reconcile: 本轮对账 {} 个进行中任务", checked);
+            businessMetrics.scheduleRun("reconcile", true, checked);
         } catch (Exception e) {
             log.error("[SCHED] reconcile 失败", e);
+            businessMetrics.scheduleRun("reconcile", false, 0);
         }
     }
 }

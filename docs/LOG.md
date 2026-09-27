@@ -680,3 +680,60 @@ openssl 独立计算合法签名访问 → HTTP 200   ← 交叉验证 HMAC 实�
 **为什么 30 分钟够用**：签名 URL 是**无状态凭证**，服务端不记录"谁在哪个页面"，所以无法精确到"退出界面即失效"；能用的手段只有——**短 TTL、换密钥、绑定会话**。30 分钟覆盖了正常浏览/审核时长，同时泄露窗口远小于登录会话（JWT 7 天）；若将来需要"登出即失效"，可把**会话版本**写进签名（校验时查一次 Redis），用有状态换精确性。
 
 **前端兜底（待 B7）**：`<image binderror>` 触发时重新拉一次详情拿新签名 URL 重试一次。
+
+---
+
+# 📅 2026-09-27 · 升级批次 B6：可观测（指标 + 慢接口/慢 SQL 日志）
+
+## 一、改动
+
+| 项 | 实现 |
+|---|---|
+| **指标采集** | pom 增加 `micrometer-registry-prometheus`；dev/test/prod 暴露 `/actuator/prometheus` |
+| **业务指标**（`BusinessMetrics`） | 接取结果 / 限流拒绝 / 审核决策与等待时长 / 定时任务执行结果与处理条数 |
+| **慢接口日志**（`SlowRequestLoggingFilter`） | 用 **Filter** 而非拦截器，覆盖 `/files/**`、`/actuator/**`；阈值 `treatbord.observability.slow-api-ms` |
+| **慢 SQL 日志**（`SlowSqlInterceptor`） | MyBatis 插件，挂 **StatementHandler.query/update/batch**；阈值 `slow-sql-ms`；只记 MappedStatement id，**不打印 SQL 与参数** |
+| **签名失败日志** | `FileViewController` 403 前打 WARN（key/exp/hasSig），**不打印 sig**；用于区分"签名失效"与"请求未到服务端" |
+| 阈值配置 | dev 500/300ms · prod 800/500ms · test 500/300ms |
+
+## 二、指标清单（实测输出）
+
+```
+treatbord_claim_result_total{result="success"} 1.0
+treatbord_claim_result_total{result="full"}    1.0
+treatbord_ratelimit_rejected_total{scope="report"} 1.0
+treatbord_schedule_runs_total{result="success",task="expireTasks"} 1.0
+treatbord_schedule_runs_total{result="success",task="cancelOverdueClaims"} 1.0
+treatbord_schedule_runs_total{result="success",task="autoApprove"} 1.0
+```
+标准指标（`jvm_memory_used_bytes`、`http_server_requests_seconds_count`）同时正常采集。
+
+**标签基数控制**：接取结果把错误码映射为固定低基数标签（`full/not_claimable/duplicate/self_claim/credit_not_enough/other`），避免 `result` 维度爆炸。
+
+## 三、踩坑记录：MyBatis 扩展点选择（值得记住）
+
+**现象**：`SlowSqlInterceptor` 挂 `Executor.query(MappedStatement, Object, RowBounds, ResultHandler)` 与 `Executor.update` 时，
+插件**确实在链上**（`sqlSessionFactory.getConfiguration().getInterceptors()` 能看到它，位于 `MybatisPlusInterceptor` 内层），
+但 `intercept()` **从未被调用**（加 `System.out` 探针验证：无输出）。
+
+**结论**：在本项目链路（MyBatis 3.5 + MP 3.5.12 + `SqlSessionTemplate`）下，`Executor` 的 4 参 `query` 签名没有实际经过代理；
+**改挂 `StatementHandler.query/update/batch` 后立即生效**，而且它更贴近"慢 SQL"语义（真正执行 JDBC 的地方）。
+
+**学习点**：MyBatis 四大扩展点（Executor / StatementHandler / ParameterHandler / ResultSetHandler）各有适用场景；
+排查插件是否生效要**用探针验证"是否被调用"**，而不是只看"是否在链上"。
+
+## 四、日志脱敏复核（6-4 结论）
+
+| 检查项 | 结果 |
+|---|---|
+| 是否记录 password / token / secret / pepper | ✅ 无 |
+| openid 是否脱敏 | ✅ `WxAuthService` 用 `MaskUtil.maskOpenid()`（唯一一处 openid 日志，且在 `[WX-MOCK]` 分支，生产走真实微信不经过） |
+| 签名 URL / sig 是否进日志 | ✅ 只记 `storageKey`、`exp`、`hasSig` 布尔值，**不记 sig** |
+| 慢 SQL 日志是否泄露数据 | ✅ 只记 MappedStatement id，不带 SQL 文本与参数 |
+
+## 五、验证
+
+- `mvn test` → **Tests run: 93, Failures: 0, Errors: 0**（新增 6 例：业务指标 4 + 慢日志 2）
+  * `BusinessMetricsTest`：接取 success/full 双标签、限流 rejected、审核决策+等待时长、定时任务 runs
+  * `ObservabilityLoggingTest`：阈值覆盖为 0 时确实写出 `[SLOW-SQL]` / `[SLOW-API]`（用 logback `ListAppender` 捕获）
+- 运行时：`/actuator/prometheus` 实测输出见上；冒烟数据已清理（残留 0）

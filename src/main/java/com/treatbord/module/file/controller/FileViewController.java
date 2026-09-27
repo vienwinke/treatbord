@@ -2,6 +2,7 @@ package com.treatbord.module.file.controller;
 
 import com.treatbord.module.file.service.FileUrlSigner;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import java.nio.file.Paths;
  * 静态文件访问：GET /files/biz/{type}/{yyyyMM}/{uuid}.ext
  * （凭证图 / 头像 URL 渲染用，MVP 本地磁盘直读）。
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class FileViewController {
@@ -33,6 +35,8 @@ public class FileViewController {
                                          @RequestParam(value = "sig", required = false) String sig) {
         String storageKey = "biz/" + type + "/" + yyyyMM + "/" + name;
         if (fileUrlSigner.required() && !fileUrlSigner.verify(storageKey, exp, sig)) {
+            // 排障用：区分"签名失效被拒（403）"与"请求根本没到服务端（超时）"。注意不打印 sig 本身。
+            log.warn("[FILE] 签名校验失败(403) key={} exp={} hasSig={}", storageKey, exp, sig != null);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         String dir = env.getProperty("treatbord.storage.local-dir", "./uploads");
