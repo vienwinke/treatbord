@@ -7,7 +7,9 @@ import com.treatbord.module.auth.dto.LoginRequest;
 import com.treatbord.module.auth.dto.LoginResponse;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.service.UserService;
+import com.treatbord.security.ClientIpResolver;
 import com.treatbord.security.JwtUtil;
+import com.treatbord.security.LoginAttemptService;
 import com.treatbord.security.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,8 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditService auditService;
+    private final LoginAttemptService loginAttemptService;
+    private final ClientIpResolver clientIpResolver;
     private final StringRedisTemplate redisTemplate;
 
     /**
@@ -48,11 +52,24 @@ public class AuthService {
      * 账密登录：账号 + 密码 → 校验 → 签发 token（与微信登录同一用户，openid 绑定）。
      */
     public LoginResponse accountLogin(String username, String password, HttpServletRequest httpReq) {
-        User user = userService.verifyAccount(username, password);
+        String ip = clientIpResolver.resolve(httpReq);
+        // 登录失败锁定：IP 维度硬锁（账号维度只累计，避免"知道用户名即可锁定他人账号"）
+        if (loginAttemptService.isLocked(ip)) {
+            auditService.recordLogin(null, false, "LOGIN_LOCKED", httpReq);
+            throw new BusinessException(ResultCode.TOO_MANY_REQUESTS, "登录失败次数过多，请稍后再试");
+        }
+        User user;
+        try {
+            user = userService.verifyAccount(username, password);
+        } catch (BusinessException e) {
+            loginAttemptService.recordFailure(username, ip);
+            throw e;
+        }
         if (Integer.valueOf(1).equals(user.getStatus())) {
             auditService.recordLogin(user.getId(), false, "USER_BANNED", httpReq);
             throw new BusinessException(ResultCode.USER_BANNED);
         }
+        loginAttemptService.clear(username, ip);
         return issueToken(user, "账密登录", httpReq);
     }
 

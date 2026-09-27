@@ -80,6 +80,7 @@ public abstract class AbstractIntegrationTest {
             jdbcTemplate.update("DELETE FROM claim_status_log WHERE operator_id = ?", userId);
             jdbcTemplate.update("DELETE FROM task_status_log WHERE operator_id = ?", userId);
             jdbcTemplate.update("DELETE FROM audit_log WHERE user_id = ?", userId);
+            jdbcTemplate.update("DELETE FROM file WHERE uploader_id = ?", userId);
             jdbcTemplate.update("DELETE FROM user WHERE id = ?", userId);
         }
         createdTaskIds.clear();

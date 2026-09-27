@@ -83,6 +83,16 @@ public class AdminController {
     }
 
     /** 统计 */
+    /** 审计日志查询（操作追溯：封禁/下架/审核/结算等） */
+    @GetMapping("/audit-logs")
+    public Result<PageResult<com.treatbord.module.admin.dto.AuditLogVO>> auditLogs(
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long pageSize) {
+        return Result.ok(adminService.listAuditLogs(action, userId, page, pageSize));
+    }
+
     @GetMapping("/stats/summary")
     public Result<Map<String, Object>> summary() {
         return Result.ok(adminService.summary());

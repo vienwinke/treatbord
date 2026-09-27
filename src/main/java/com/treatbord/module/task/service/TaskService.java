@@ -38,6 +38,7 @@ public class TaskService {
     private final TaskStatusLogMapper taskStatusLogMapper;
     private final TaskClaimMapper taskClaimMapper;
     private final TaskCacheService taskCacheService;
+    private final com.treatbord.module.submission.service.SubmissionViewAssembler submissionViewAssembler;
     private final com.treatbord.module.submission.mapper.TaskSubmissionMapper submissionMapper;
     private final UserService userService;
     private final AuditService auditService;
@@ -251,7 +252,8 @@ public class TaskService {
             vo.setUserNickname(u == null ? null : u.getNickname());
             var sub = subs.get(c.getId());
             if (sub != null) {
-                vo.setSubmission(com.treatbord.module.submission.dto.SubmissionVO.from(sub));
+                // 读时签名：能走到这里说明调用方已通过"发布者归属"校验（见方法开头 IDOR 校验）
+                vo.setSubmission(submissionViewAssembler.assemble(sub));
             }
             return vo;
         }).collect(Collectors.toList());

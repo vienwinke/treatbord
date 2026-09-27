@@ -600,3 +600,70 @@ POST /api/reports 连打 6 次：前 5 次 code=0，第 6 次 code=429
 - **缓存一致性**：定时任务批量过期只做"列表整体失效"，详情缓存靠 TTL（≤300s）兜底 —— 对"过期任务详情仍显示 OPEN"的窗口可接受（不影响接取，接取仍受原子 SQL 的时间条件保护）
 - **多一次 Redis 往返**：列表/详情读多一次 `GET`，但换来数据库压力下降；缓存故障自动降级为直查
 - **版本号方案**：旧版本 key 不删除、随 TTL 自然过期，避免了 `SCAN`+`DEL` 的复杂度与风险
+---
+
+# 📅 2026-09-27 · 升级批次 B5：文件签名 URL + 审计查询 + 登录失败锁定
+
+## 一、背景
+
+`/files/**` 是**无鉴权直读**（小程序 `<image src>` 带不了 Authorization 头），防护仅靠"UUID 不可猜"：URL 一旦泄露即**永久可访问**、无法撤销。同时发现一个**真实缺陷**：`SubmissionVO.fileUrls` **从未被后端填充** → 审核页的图片网格一直是空的。
+
+## 二、B5a：签名基础设施 + 风控
+
+| 项 | 实现 |
+|---|---|
+| **签名算法** | `sig = Base64Url(HMAC-SHA256(secret, storageKey + ":" + exp))`；校验"未过期 + `MessageDigest.isEqual` 常量时间比较" |
+| **强制开关** | `treatbord.storage.signed-url.required`：**dev 默认 false**（便于联调）/ **prod 强制 true**；缺签名/伪造/过期 → **403** |
+| **密钥治理** | `STORAGE_SIGN_SECRET` 纳入 StartupValidator 生产必填项，且不得为开发默认值 |
+| **URL 动态化** | 签名 URL 与上传响应按**当前请求 Host** 拼装 → 解决 dev 下写死 `127.0.0.1:8080` 的问题（B5a-2） |
+| **路径归属** | `FileViewController` 补 `normalize()` 后 `startsWith(baseDir)` 校验 |
+| **审计查询** | 新增 `GET /api/admin/audit-logs?action=&userId=&page=&pageSize=`，返回 `AuditLogVO`（不暴露实体），`@RequireAdmin` 保护 |
+| **登录失败锁定** | `LoginAttemptService`：**IP 维度硬锁**（`login.fail.threshold`/`login.fail.lock.minutes` 可热调）+ **账号维度只累计不硬锁**（否则"知道用户名就能锁死他人账号"）；登录成功清零；V8 补配置键 |
+
+## 三、B5b：读时签名（授权 = 上传者 + 接取双方）
+
+```java
+// SubmissionViewAssembler：组装凭证 VO 时下发签名 URL
+public SubmissionVO assemble(TaskSubmission sub) {
+    SubmissionVO vo = SubmissionVO.from(sub);
+    if (vo != null && sub.getFileIds() != null) {
+        List<Long> ids = parseFileIds(sub.getFileIds());
+        vo.setFileIds(ids);
+        vo.setFileUrls(fileService.signedUrls(ids));   // 签名（授权由调用方业务校验负责）
+    }
+    return vo;
+}
+```
+
+**授权原则**：**不按"角色"授权，而是对齐业务可见性**——能查看这条凭证的人（接取者本人 / 任务发布者），就能拿到其中图片的签名 URL。因为复用了已有的归属校验，**规则只有一套**，不会出现"能看凭证却看不到图"或反过来的割裂。
+
+**顺带修复**：审核页图片网格空白（fileUrls 从未填充）—— 现在 `detail()` 与发布者的接取列表都会下发签名 URL。
+
+**一个架构细节**：若让 `TaskService` 直接依赖 `SubmissionService`，会出现 `TaskService → SubmissionService → ClaimService → TaskService` **循环依赖**（Spring Boot 2.6+ 默认禁止）。故抽出独立的 `SubmissionViewAssembler`（只依赖 FileService）打破环。
+
+## 四、验证
+
+**测试**：`mvn test` → `Tests run: 87, Failures: 0, Errors: 0` · BUILD SUCCESS（新增 15 例）
+
+| 用例 | 断言 |
+|---|---|
+| `FileUrlSignerTest`（6） | 签名可校验；**篡改路径失效**；伪造/缺参/非法时间戳拒绝；过期拒绝；**换密钥全局失效**；required 开关 |
+| `FileSignedUrlAccessTest`（5） | `required=true` 下：无签名 403、正确签名 200、伪造 403、过期 403、**拿 A 文件的签名访问 B 文件 403** |
+| `SubmissionFileUrlTest`（1） | 上传响应带 `exp/sig`；接取者与发布者都能拿到签名 URL；**陌生人连详情都 403**；发布者列表同样带签名 URL |
+| `LoginLockoutTest`（2） | 连续 5 次失败后**正确密码也 429**；未达阈值正常登录且成功后计数清零 |
+| `AdminAuditLogTest`（1） | 普通用户 403（`@RequireAdmin`）；管理员可查到记录 |
+
+**运行时开关验证**（`STORAGE_SIGNED_URL_REQUIRED=true`，模拟生产）：
+
+```
+无签名访问 /files/...        → HTTP 403
+伪造签名访问                → HTTP 403
+openssl 独立计算合法签名访问 → HTTP 200   ← 交叉验证 HMAC 实现一致
+```
+
+## 五、取舍
+
+- **签名 ≠ 加密**：不隐藏内容，只证明"服务端签发 + 未过期 + 未篡改"；短 TTL（300s）控制泄露影响，换密钥可全局失效
+- **账号维度不硬锁**：避免被用来恶意锁定他人账号（用账号维度做硬锁是常见的"DoS 自家用户"设计错误）
+- **读时签名 vs 独立签名接口**：选读时签名，授权天然复用业务校验；代价是响应不能被缓存，TTL 需覆盖用户看图时长
+- **定时任务下的详情缓存**：批量过期只让列表缓存失效，详情靠 TTL 兜底（≤300s），不影响接取正确性（原子 SQL 仍带时间条件）

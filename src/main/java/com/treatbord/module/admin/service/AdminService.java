@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.PageResult;
 import com.treatbord.common.ResultCode;
+import com.treatbord.module.admin.dto.AuditLogVO;
 import com.treatbord.module.audit.service.AuditService;
 import com.treatbord.module.notify.service.NotificationService;
 import com.treatbord.module.report.dto.ReportVO;
@@ -46,6 +47,7 @@ public class AdminService {
     private final UserMapper userMapper;
     private final SettlementMapper settlementMapper;
     private final AuditService auditService;
+    private final com.treatbord.module.audit.mapper.AuditLogMapper auditLogMapper;
     private final NotificationService notificationService;
     private final TokenBlacklistService tokenBlacklistService;
     private final StringRedisTemplate redisTemplate;
@@ -171,6 +173,24 @@ public class AdminService {
         Page<User> result = userMapper.selectPage(p, qw);
         java.util.List<UserVO> list = result.getRecords().stream()
                 .map(UserVO::from)
+                .collect(java.util.stream.Collectors.toList());
+        return PageResult.of(list, result.getTotal(), page, pageSize);
+    }
+
+    /**
+     * 审计日志查询（分页 + action/userId 筛选）。
+     */
+    public PageResult<AuditLogVO> listAuditLogs(String action, Long userId, long page, long pageSize) {
+        Page<com.treatbord.module.audit.entity.AuditLog> p = new Page<>(page, pageSize);
+        LambdaQueryWrapper<com.treatbord.module.audit.entity.AuditLog> qw =
+                new LambdaQueryWrapper<com.treatbord.module.audit.entity.AuditLog>()
+                        .eq(action != null && !action.isBlank(),
+                                com.treatbord.module.audit.entity.AuditLog::getAction, action)
+                        .eq(userId != null, com.treatbord.module.audit.entity.AuditLog::getUserId, userId)
+                        .orderByDesc(com.treatbord.module.audit.entity.AuditLog::getCreateTime);
+        Page<com.treatbord.module.audit.entity.AuditLog> result = auditLogMapper.selectPage(p, qw);
+        java.util.List<AuditLogVO> list = result.getRecords().stream()
+                .map(AuditLogVO::from)
                 .collect(java.util.stream.Collectors.toList());
         return PageResult.of(list, result.getTotal(), page, pageSize);
     }

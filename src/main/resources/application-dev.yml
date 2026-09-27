@@ -41,6 +41,11 @@ treatbord:
     type: local
     local-dir: ${STORAGE_LOCAL_DIR:./uploads}
     base-url: ${STORAGE_BASE_URL:http://127.0.0.1:8080/files}
+    # 文件签名 URL（/files/...?exp=..&sig=..）
+    sign-secret: ${STORAGE_SIGN_SECRET:dev-sign-secret-change-me}
+    signed-url:
+      required: ${STORAGE_SIGNED_URL_REQUIRED:false}   # 开发不强制，便于小程序联调
+      ttl-seconds: 300
   wx:
     # 本地联调：false = 用测试 openid 映射，不调用微信
     enabled: ${WX_LOGIN_ENABLED:false}

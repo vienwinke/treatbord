@@ -25,6 +25,26 @@ public class FileService {
     private final FileRecordMapper fileRecordMapper;
     private final AuditService auditService;
     private final ContentSecurityService contentSecurityService;
+    private final FileUrlSigner fileUrlSigner;
+
+    /**
+     * 把 fileIds 解析为【签名 URL 列表】（读时签名）。
+     *
+     * <p>⚠️ 授权说明：本方法只负责"签名"，**授权由调用方的业务校验负责**——
+     * 只有通过与凭证归属校验（接取者本人 / 任务发布者）或"自己上传"的请求才会拿到 URL。
+     * 已判定违规（sec_status=2）的文件不下发。
+     */
+    public java.util.List<String> signedUrls(java.util.List<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.Set<Long> distinct = new java.util.LinkedHashSet<>(fileIds);
+        return fileRecordMapper.selectBatchIds(distinct).stream()
+                .filter(f -> f.getStorageKey() != null)
+                .filter(f -> !Integer.valueOf(FileRecord.SEC_CHECK_REJECT).equals(f.getSecStatus()))
+                .map(f -> fileUrlSigner.signedUrl(f.getStorageKey()))
+                .collect(java.util.stream.Collectors.toList());
+    }
 
     /**
      * 上传（安全链路）：白名单 → magic bytes → 大小 → 随机名 → 入库 → 内容安全。
@@ -59,6 +79,10 @@ public class FileService {
 
         auditService.record(uploaderId, "UPLOAD_FILE", "file", record.getId(),
                 "上传文件 size=" + file.getSize() + " type=" + bizType, httpReq);
+
+        // 返回给客户端的是【短时签名 URL】（按当前请求 Host 生成，解决 dev 下写死 127.0.0.1）；
+        // 数据库中保存的仍是稳定 URL，用于后台追溯。
+        record.setUrl(fileUrlSigner.signedUrl(record.getStorageKey()));
         return record;
     }
 }

@@ -43,6 +43,7 @@ public class SubmissionService {
     private final ClaimService claimService;
     private final ContentSecurityService contentSecurityService;
     private final SubmissionTxService submissionTxService;
+    private final SubmissionViewAssembler submissionViewAssembler;
     private final ObjectMapper objectMapper;
 
     /**
@@ -101,11 +102,8 @@ public class SubmissionService {
         }
 
         TaskSubmission latest = submissionMapper.selectLatestByClaimId(claimId);
-        SubmissionVO vo = SubmissionVO.from(latest);
-        if (vo != null && latest.getFileIds() != null) {
-            vo.setFileIds(parseFileIds(latest.getFileIds()));
-        }
-        return new TaskClaimAndSubmission(claim, task, vo);
+        // 含签名文件 URL；授权已由上面的归属校验保证
+        return new TaskClaimAndSubmission(claim, task, submissionViewAssembler.assemble(latest));
     }
 
     /**

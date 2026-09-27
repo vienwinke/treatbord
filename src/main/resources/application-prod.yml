@@ -44,6 +44,10 @@ treatbord:
   storage:
     type: ${STORAGE_TYPE:oss}       # 生产默认 OSS
     base-url: ${STORAGE_BASE_URL:}
+    sign-secret: ${STORAGE_SIGN_SECRET:}   # 空默认 -> StartupValidator 校验
+    signed-url:
+      required: true                 # 生产强制签名，杜绝裸读
+      ttl-seconds: 300
     oss:
       endpoint: ${OSS_ENDPOINT:}
       bucket: ${OSS_BUCKET:}

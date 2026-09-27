@@ -39,6 +39,10 @@ treatbord:
     type: local
     local-dir: ${STORAGE_LOCAL_DIR:./target/test-uploads}
     base-url: http://127.0.0.1:8080/files
+    sign-secret: ${STORAGE_SIGN_SECRET:test-sign-secret}
+    signed-url:
+      required: false              # 默认不强制；签名校验用例单独覆盖为 true
+      ttl-seconds: 300
   wx:
     enabled: false
   security:

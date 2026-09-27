@@ -33,7 +33,8 @@ public class StartupValidator implements InitializingBean {
             "MYSQL_PASSWORD",
             "MYSQL_MIGRATE_USER",
             "MYSQL_MIGRATE_PASSWORD",
-            "REDIS_HOST"
+            "REDIS_HOST",
+            "STORAGE_SIGN_SECRET"
     );
 
     /** 开发默认密钥前缀：生产出现即视为未配置 */
@@ -84,6 +85,17 @@ public class StartupValidator implements InitializingBean {
             if (pepper.startsWith(prefix)) {
                 problems.add("PASSWORD_PEPPER 仍为开发默认值，生产必须更换");
                 break;
+            }
+        }
+
+        // 3.1 文件签名密钥不得为开发默认值（签名 URL 是 /files/** 的唯一授权手段）
+        String signSecret = env.getProperty("STORAGE_SIGN_SECRET", "");
+        if (!signSecret.isBlank()) {
+            for (String prefix : DEV_PLACEHOLDER_PREFIXES) {
+                if (signSecret.startsWith(prefix)) {
+                    problems.add("STORAGE_SIGN_SECRET 仍为开发默认值，生产必须更换");
+                    break;
+                }
             }
         }
 
