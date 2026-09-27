@@ -43,6 +43,12 @@ public class ScheduledTasks {
     private final ReviewService reviewService;
     private final UserMapper userMapper;
 
+    /** 分批处理的批大小：避免一次性把全量数据读进内存（OOM 隐患） */
+    private static final int BATCH_SIZE = 500;
+
+    /** 单次执行最多处理批数：防止数据异常时长时间占用调度线程（500 × 200 = 10 万行/轮） */
+    private static final int MAX_BATCHES_PER_RUN = 200;
+
     /**
      * 任务过期扫描（每分钟）：
      * 1. claim_deadline 已过仍 OPEN → EXPIRED（无接取）
@@ -51,8 +57,8 @@ public class ScheduledTasks {
     @Scheduled(cron = "0 * * * * *")
     public void expireTasks() {
         try {
-            int n1 = expireByStatus(TaskStatus.OPEN, "claim_deadline < NOW()", "接取截止已过自动过期");
-            int n2 = expireByStatus(TaskStatus.IN_PROGRESS, "deadline < NOW()", "完成截止已过自动过期");
+            int n1 = expireByStatus(TaskStatus.OPEN, "claim_deadline < NOW()", "接取截止已过自动过期", true);
+            int n2 = expireByStatus(TaskStatus.IN_PROGRESS, "deadline < NOW()", "完成截止已过自动过期", false);
             if (n1 > 0 || n2 > 0) {
                 log.info("[SCHED] expireTasks: OPEN→EXPIRED={}, IN_PROGRESS→EXPIRED={}", n1, n2);
             }
@@ -66,17 +72,35 @@ public class ScheduledTasks {
      * 时间判定交给数据库 NOW()（避免应用时钟偏差），并补齐状态审计（AGENTS §6：所有迁移写 status_log）。
      * 条件串是代码内常量（非用户输入），不存在注入风险。
      */
-    private int expireByStatus(TaskStatus fromStatus, String timeCondition, String reason) {
-        List<Task> overdue = taskMapper.selectList(new LambdaQueryWrapper<Task>()
-                .eq(Task::getStatus, fromStatus.name())
-                .apply(timeCondition));
+    private int expireByStatus(TaskStatus fromStatus, String timeCondition, String reason,
+                               boolean orderByClaimDeadline) {
         int n = 0;
-        for (Task t : overdue) {
-            if (taskMapper.casStatus(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name()) == 0) {
-                continue; // 已被并发处理
+        // 分批读取：处理过的记录状态已变，会自然从下一批结果集中消失，无需 offset
+        for (int round = 0; round < MAX_BATCHES_PER_RUN; round++) {
+            LambdaQueryWrapper<Task> wrapper = new LambdaQueryWrapper<Task>()
+                    .eq(Task::getStatus, fromStatus.name())
+                    .apply(timeCondition);
+            // 按时间列排序：分批顺序确定（先处理最久远的），并让查询走上 (status, 时间列) 索引
+            if (orderByClaimDeadline) {
+                wrapper.orderByAsc(Task::getClaimDeadline);
+            } else {
+                wrapper.orderByAsc(Task::getDeadline);
             }
-            taskService.writeTaskLog(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name(), null, reason);
-            n++;
+            wrapper.last("LIMIT " + BATCH_SIZE);
+            List<Task> batch = taskMapper.selectList(wrapper);
+            if (batch.isEmpty()) {
+                break;
+            }
+            for (Task t : batch) {
+                if (taskMapper.casStatus(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name()) == 0) {
+                    continue; // 已被并发处理
+                }
+                taskService.writeTaskLog(t.getId(), fromStatus.name(), TaskStatus.EXPIRED.name(), null, reason);
+                n++;
+            }
+            if (batch.size() < BATCH_SIZE) {
+                break;
+            }
         }
         return n;
     }
@@ -106,34 +130,49 @@ public class ScheduledTasks {
     public void cancelOverdueClaims() {
         try {
             int timeoutHours = appConfigService.getInt("claim.timeout.hours", 72);
+            int penalty = appConfigService.getInt("credit.penalty.overdue", 10);
             LocalDateTime cutoff = LocalDateTime.now().minusHours(timeoutHours);
 
-            List<TaskClaim> overdue = taskClaimMapper.selectList(new LambdaQueryWrapper<TaskClaim>()
-                    .eq(TaskClaim::getStatus, ClaimStatus.CLAIMED.name())
-                    .lt(TaskClaim::getCreateTime, cutoff));
-
             java.util.Set<Long> affectedTaskIds = new java.util.HashSet<>();
-            for (TaskClaim c : overdue) {
-                int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.CLAIMED.name(),
-                        ClaimStatus.CANCELLED.name());
-                if (updated == 0) {
-                    continue; // 已被并发处理
+            int total = 0;
+            // 分批读取：每批处理完后这些记录状态已变，下一批不会重复
+            for (int round = 0; round < MAX_BATCHES_PER_RUN; round++) {
+                List<TaskClaim> batch = taskClaimMapper.selectList(new LambdaQueryWrapper<TaskClaim>()
+                        .eq(TaskClaim::getStatus, ClaimStatus.CLAIMED.name())
+                        .lt(TaskClaim::getCreateTime, cutoff)
+                        .orderByAsc(TaskClaim::getCreateTime)
+                        .last("LIMIT " + BATCH_SIZE));
+                if (batch.isEmpty()) {
+                    break;
                 }
-                affectedTaskIds.add(c.getTaskId());
-                taskMapper.decrementClaimedCount(c.getTaskId());
-                claimService.writeClaimLog(c.getId(), ClaimStatus.CLAIMED.name(),
-                        ClaimStatus.CANCELLED.name(), null, "接取超时自动取消");
+                for (TaskClaim c : batch) {
+                    int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.CLAIMED.name(),
+                            ClaimStatus.CANCELLED.name());
+                    if (updated == 0) {
+                        continue; // 已被并发处理
+                    }
+                    affectedTaskIds.add(c.getTaskId());
+                    taskMapper.decrementClaimedCount(c.getTaskId());
+                    claimService.writeClaimLog(c.getId(), ClaimStatus.CLAIMED.name(),
+                            ClaimStatus.CANCELLED.name(), null, "接取超时自动取消");
 
-                // 扣信用分
-                int penalty = appConfigService.getInt("credit.penalty.overdue", 10);
-                User u = userMapper.selectById(c.getUserId());
-                if (u != null) {
-                    User up = new User();
-                    up.setId(u.getId());
-                    up.setCreditScore(Math.max(0, u.getCreditScore() - penalty));
-                    userMapper.updateById(up);
+                    // 扣信用分
+                    User u = userMapper.selectById(c.getUserId());
+                    if (u != null) {
+                        User up = new User();
+                        up.setId(u.getId());
+                        up.setCreditScore(Math.max(0, u.getCreditScore() - penalty));
+                        userMapper.updateById(up);
+                    }
+                    total++;
+                    log.debug("[SCHED] cancelOverdueClaims: claim={} 超时取消", c.getId());
                 }
-                log.info("[SCHED] cancelOverdueClaims: claim={} 超时取消", c.getId());
+                if (batch.size() < BATCH_SIZE) {
+                    break;
+                }
+            }
+            if (total > 0) {
+                log.info("[SCHED] cancelOverdueClaims: 本轮共取消 {} 条超时接取", total);
             }
             finalizeTasks(affectedTaskIds);
         } catch (Exception e) {
@@ -154,32 +193,46 @@ public class ScheduledTasks {
             int timeoutHours = appConfigService.getInt("review.timeout.hours", 48);
             LocalDateTime cutoff = LocalDateTime.now().minusHours(timeoutHours);
 
-            List<TaskClaim> overdue = taskClaimMapper.selectList(new LambdaQueryWrapper<TaskClaim>()
-                    .eq(TaskClaim::getStatus, ClaimStatus.SUBMITTED.name())
-                    .lt(TaskClaim::getSubmittedAt, cutoff));
-
             java.util.Set<Long> affectedTaskIds = new java.util.HashSet<>();
-            for (TaskClaim c : overdue) {
-                int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.SUBMITTED.name(),
-                        ClaimStatus.APPROVED.name());
-                if (updated == 0) {
-                    continue;
+            int total = 0;
+            for (int round = 0; round < MAX_BATCHES_PER_RUN; round++) {
+                List<TaskClaim> batch = taskClaimMapper.selectList(new LambdaQueryWrapper<TaskClaim>()
+                        .eq(TaskClaim::getStatus, ClaimStatus.SUBMITTED.name())
+                        .lt(TaskClaim::getSubmittedAt, cutoff)
+                        .orderByAsc(TaskClaim::getSubmittedAt)
+                        .last("LIMIT " + BATCH_SIZE));
+                if (batch.isEmpty()) {
+                    break;
                 }
-                affectedTaskIds.add(c.getTaskId());
-                // 与人工审核保持一致：回填审核时间与备注
-                TaskClaim up = new TaskClaim();
-                up.setId(c.getId());
-                up.setReviewedAt(LocalDateTime.now());
-                up.setReviewNote("审核超时自动通过");
-                taskClaimMapper.updateById(up);
-                claimService.writeClaimLog(c.getId(), ClaimStatus.SUBMITTED.name(),
-                        ClaimStatus.APPROVED.name(), null, "审核超时自动通过");
-                notificationService.notify(c.getUserId(),
-                        com.treatbord.module.notify.entity.Notification.TYPE_AUTO_APPROVED,
-                        "凭证已自动通过",
-                        "审核超时，你的凭证已被自动标记为通过",
-                        c.getTaskId());
-                log.info("[SCHED] autoApprove: claim={} 自动通过", c.getId());
+                for (TaskClaim c : batch) {
+                    int updated = taskClaimMapper.casStatus(c.getId(), ClaimStatus.SUBMITTED.name(),
+                            ClaimStatus.APPROVED.name());
+                    if (updated == 0) {
+                        continue;
+                    }
+                    affectedTaskIds.add(c.getTaskId());
+                    // 与人工审核保持一致：回填审核时间与备注
+                    TaskClaim up = new TaskClaim();
+                    up.setId(c.getId());
+                    up.setReviewedAt(LocalDateTime.now());
+                    up.setReviewNote("审核超时自动通过");
+                    taskClaimMapper.updateById(up);
+                    claimService.writeClaimLog(c.getId(), ClaimStatus.SUBMITTED.name(),
+                            ClaimStatus.APPROVED.name(), null, "审核超时自动通过");
+                    notificationService.notify(c.getUserId(),
+                            com.treatbord.module.notify.entity.Notification.TYPE_AUTO_APPROVED,
+                            "凭证已自动通过",
+                            "审核超时，你的凭证已被自动标记为通过",
+                            c.getTaskId());
+                    total++;
+                    log.debug("[SCHED] autoApprove: claim={} 自动通过", c.getId());
+                }
+                if (batch.size() < BATCH_SIZE) {
+                    break;
+                }
+            }
+            if (total > 0) {
+                log.info("[SCHED] autoApprove: 本轮自动通过 {} 条", total);
             }
             finalizeTasks(affectedTaskIds);
         } catch (Exception e) {
@@ -194,19 +247,36 @@ public class ScheduledTasks {
     @Scheduled(cron = "0 0 * * * *")
     public void reconcile() {
         try {
-            List<Task> tasks = taskMapper.selectList(new LambdaQueryWrapper<Task>()
-                    .in(Task::getStatus, TaskStatus.OPEN.name(), TaskStatus.IN_PROGRESS.name()));
-            for (Task t : tasks) {
-                long active = taskClaimMapper.selectCount(new LambdaQueryWrapper<TaskClaim>()
-                        .eq(TaskClaim::getTaskId, t.getId())
-                        .in(TaskClaim::getStatus,
-                                ClaimStatus.CLAIMED.name(), ClaimStatus.SUBMITTED.name(),
-                                ClaimStatus.APPROVED.name()));
-                if (active != t.getClaimedCount()) {
-                    log.warn("[SCHED] 对账异常 task={} claimed_count={} 实际有效claim={}",
-                            t.getId(), t.getClaimedCount(), active);
+            long lastId = 0L;
+            int checked = 0;
+            // 该任务只读不写，必须用主键游标推进，否则会重复扫描同一批
+            for (int round = 0; round < MAX_BATCHES_PER_RUN; round++) {
+                List<Task> batch = taskMapper.selectList(new LambdaQueryWrapper<Task>()
+                        .in(Task::getStatus, TaskStatus.OPEN.name(), TaskStatus.IN_PROGRESS.name())
+                        .gt(Task::getId, lastId)
+                        .orderByAsc(Task::getId)
+                        .last("LIMIT " + BATCH_SIZE));
+                if (batch.isEmpty()) {
+                    break;
+                }
+                for (Task t : batch) {
+                    long active = taskClaimMapper.selectCount(new LambdaQueryWrapper<TaskClaim>()
+                            .eq(TaskClaim::getTaskId, t.getId())
+                            .in(TaskClaim::getStatus,
+                                    ClaimStatus.CLAIMED.name(), ClaimStatus.SUBMITTED.name(),
+                                    ClaimStatus.APPROVED.name()));
+                    if (active != t.getClaimedCount()) {
+                        log.warn("[SCHED] 对账异常 task={} claimed_count={} 实际有效claim={}",
+                                t.getId(), t.getClaimedCount(), active);
+                    }
+                }
+                lastId = batch.get(batch.size() - 1).getId();
+                checked += batch.size();
+                if (batch.size() < BATCH_SIZE) {
+                    break;
                 }
             }
+            log.debug("[SCHED] reconcile: 本轮对账 {} 个进行中任务", checked);
         } catch (Exception e) {
             log.error("[SCHED] reconcile 失败", e);
         }

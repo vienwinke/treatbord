@@ -422,3 +422,57 @@ mvn -s settings-mirror.xml test
 
 - CI 首次运行需在 GitHub Actions 上验证（本地无法执行 workflow）
 - B2 待办：定时任务分批处理、核心 SQL 的 `EXPLAIN` 复核
+---
+
+# 📅 2026-09-27 · 升级批次 B2：定时任务分批处理 + 扫描索引
+
+## 一、背景
+
+定时任务此前用 `selectList` 把**全量**待处理记录读进内存（10 万行任务即堆压力）；且三个扫描按时间列过滤，但时间列不在索引里（`type=ref` + `Using where`，要扫完整个 status 区间）。
+
+## 二、改动
+
+| 文件 | 改动 |
+|---|---|
+| `ScheduledTasks.java` | 四个方法全量加载 → **分批循环**（`BATCH_SIZE=500`，`MAX_BATCHES_PER_RUN=200` → 单轮上限 10 万行） |
+| 同上 | `expireByStatus` / `cancelOverdueClaims` / `autoApprove`：**处理过的记录状态即变**，下一批查询自然不重复（无需 offset） |
+| 同上 | `reconcile`：只读任务，改为**主键游标**（`id > lastId` + `ORDER BY id`），否则会反复扫同一批 |
+| 同上 | 三个扫描补时间列 `ORDER BY`：分批顺序确定（先处理最久远的）+ 查询能走 `(status, 时间列)` 索引 |
+| 同上 | 逐条 `log.info` → `log.debug`，每轮改为**一条汇总日志**（否则 10 万行刷爆日志） |
+| `V6__add_claim_scan_indexes.sql` | 新增 `idx_claim_status_ctime(status, create_time)`、`idx_claim_status_submitted(status, submitted_at)` |
+
+## 三、验证（treatbord_test 实例实跑）
+
+**数据规模**：2 万条过期 OPEN 任务 + 1200 条超时 CLAIMED 接取 + 1200 条超时 SUBMITTED 凭证
+
+**处理结果（一轮调度全部处理完）**：
+
+```
+[SCHED] expireTasks: OPEN→EXPIRED=20000, IN_PROGRESS→EXPIRED=0
+[SCHED] cancelOverdueClaims: 本轮共取消 1200 条超时接取
+[SCHED] autoApprove: 本轮自动通过 1200 条
+```
+
+**分批证据**（SQL 日志采样，共 50 处 `LIMIT 500`）：
+
+```sql
+SELECT ... FROM task_claim WHERE deleted=0 AND (status = ? AND submitted_at < ?) ORDER BY submitted_at ASC LIMIT 500
+```
+
+**`EXPLAIN` 复核（V6 前后对比）**：
+
+| SQL | V6 之前 | V6 之后 |
+|---|---|---|
+| A 列表分页（status + create_time 排序） | `ref` + `idx_task_status_ctime` + Backward index scan | 不变 ✅（本就没有 filesort） |
+| C 任务过期扫描 | `ref` + `Using where`（扫 status 全区间） | **`range` + `Using index condition`**（`idx_task_status_claimdead`） |
+| D 接取超时扫描 | `ref` + `Using where` | **`range` + ICP**（新索引 `idx_claim_status_ctime`） |
+| E 审核超时扫描 | `ref` + `Using where` | **`range` + ICP**（新索引 `idx_claim_status_submitted`） |
+
+**回归**：`mvn test` → `Tests run: 65, Failures: 0, Errors: 0` · BUILD SUCCESS
+
+## 四、取舍
+
+- **索引代价**：`task_claim` 增加两个二级索引，写入量低（接取/提交时才写），可接受
+- **单轮上限**：200 批 × 500 = 10 万行；超出部分留到下一分钟继续（避免单次调度长时间占用调度线程）
+- **日志**：逐条改 debug，生产 `com.treatbord: info` 下只留汇总，避免海量日志
+- 本次数据全部在 `treatbord_test`，验证后已清理（残留 0 行）
