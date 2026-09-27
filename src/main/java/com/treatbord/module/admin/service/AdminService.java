@@ -49,6 +49,7 @@ public class AdminService {
     private final NotificationService notificationService;
     private final TokenBlacklistService tokenBlacklistService;
     private final StringRedisTemplate redisTemplate;
+    private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
 
     /**
      * 下架违规任务（→ CANCELLED + 通知发布者）。
@@ -69,6 +70,7 @@ public class AdminService {
         taskService.writeTaskLog(taskId, task.getStatus(), TaskStatus.CANCELLED.name(),
                 adminId, "管理端下架违规");
         auditService.record(adminId, "ADMIN_OFFLINE_TASK", "task", taskId, "管理端下架", httpReq);
+        taskCacheService.onTaskChanged(taskId);
         notificationService.notify(task.getPublisherId(),
                 com.treatbord.module.notify.entity.Notification.TYPE_TASK_OFFLINE,
                 "任务被下架",

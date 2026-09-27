@@ -534,3 +534,69 @@ assertNotNull(submissionMapper.selectLatestByClaimId(claimId));
 - **多了一个 Bean**：`SubmissionService`（编排）与 `SubmissionTxService`（事务）职责分离，符合"事务边界只包住数据库操作"的原则
 - **多一次校验查询**：事务内重读 claim/task，代价可忽略（两条主键查询），换来窗口关闭
 - `@Transactional` 放在**独立 Bean** 上，避免"同类内部调用绕过代理"的经典失效
+---
+
+# 📅 2026-09-27 · 升级批次 B4：任务缓存 + 限流 Lua 原子化与覆盖面
+
+## 一、4-1 限流覆盖面
+
+| 改动 | 内容 |
+|---|---|
+| `RateLimitInterceptor.resolveScope()` | 新增 `taskcreate`（POST /api/tasks）、`report`、`review`、`notify` 四个场景；**按 HTTP 方法区分**——GET `/api/tasks` 是公开浏览（不限流），POST 才是发布（限流） |
+| `V7__add_ratelimit_config_keys.sql` | 补齐阈值：`taskcreate=10`、`report=5`、`review=20`、`notify=60`（每分钟，`app_config` 可热调） |
+
+## 二、4-2 任务缓存（新增 `TaskCacheService`，Cache-Aside）
+
+| 设计点 | 做法 | 解决什么 |
+|---|---|---|
+| 列表缓存 key | `cache:task:list:v{版本}:{status}:{keyword}:{page}:{size}` | key 带版本号 → 写操作只 `INCR cache:task:listver` 即可整体失效，**避免 SCAN 批量删除** |
+| 详情缓存 | `cache:task:detail:{id}`，只缓存**共享字段**（含发布者昵称） | `claimedByMe` 依赖登录用户 → 命中后单独补算，不污染缓存 |
+| **防穿透** | 查不到的任务写"空值标记"，TTL **60s** | 恶意刷不存在的 id 不会反复打库 |
+| **防雪崩** | TTL = `task.cache.ttl.seconds`（默认 300）+ **0~60s 随机抖动** | 避免大批 key 同时失效 |
+| **失效时机** | 接入 7 处写路径：创建/取消任务、接取/取消接取、提交凭证、审核与收尾、管理端下架、定时过期扫描 | 读到的数据与库一致（定时批量扫描走"列表整体失效"） |
+| 降级 | Redis 异常 = 未命中/跳过写缓存 | 缓存故障不影响主流程 |
+
+## 三、4-3 限流 Lua 原子化
+
+```lua
+local c = redis.call('INCR', KEYS[1])
+if tonumber(c) == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return c
+```
+
+- 原实现 `INCR` + `EXPIRE` 是**两次网络往返**：若两步之间异常，key 会**没有 TTL**（脏 key 永久驻留）
+- 改为 Lua 后"计数 + 首次设置 TTL"在 Redis 内部**原子执行**，不存在中间态
+- 固定窗口算法语义**不变**（滑动窗口 ZSet 方案留待后续）
+
+## 四、验证
+
+**单测/集成测试**：`mvn test` → `Tests run: 72, Failures: 0, Errors: 0` · BUILD SUCCESS
+
+新增 6 例：
+
+| 用例 | 断言 |
+|---|---|
+| `TaskCacheTest.listCacheHitThenInvalidated` | 直接改库后列表仍返回旧值（命中缓存）→ 接取后返回新值（失效生效） |
+| `TaskCacheTest.detailCacheHitThenInvalidated` | 同上；且 `claimedByMe` 对接取者为 true、对他人为 false（每用户字段不缓存） |
+| `TaskCacheTest.absentTaskIsNegativelyCached` | 不存在的任务第二次仍返回 2001（空值缓存防穿透） |
+| `RateLimitServiceTest.luaScriptSetsTtlAtomically` | 阈值 2 → 第 3 次拒绝；**key 的 TTL > 0**（Lua 原子设置） |
+| `RateLimitServiceTest.defaultLimitApplies` | 未配置时用默认 60，不误伤 |
+| `RateLimitCoverageTest.reportEndpointIsRateLimited` | 阈值 1 时 `POST /api/reports` 第 2 次返回 **429** |
+
+**运行时冒烟（treatbord_test + 18080）**：
+
+```
+[CACHE] 列表回填 key=cache:task:list:v24:_:_:1:5 ttl=330s
+[CACHE] 列表命中 key=cache:task:list:v24:_:_:1:5
+[CACHE] 详情回填 taskId=1 ttl=315s
+[CACHE] 详情命中 taskId=1
+
+ratelimit:report:127.0.0.1:29841936  TTL=45  value=6      ← TTL 由 Lua 原子设置
+POST /api/reports 连打 6 次：前 5 次 code=0，第 6 次 code=429
+```
+
+## 五、取舍
+
+- **缓存一致性**：定时任务批量过期只做"列表整体失效"，详情缓存靠 TTL（≤300s）兜底 —— 对"过期任务详情仍显示 OPEN"的窗口可接受（不影响接取，接取仍受原子 SQL 的时间条件保护）
+- **多一次 Redis 往返**：列表/详情读多一次 `GET`，但换来数据库压力下降；缓存故障自动降级为直查
+- **版本号方案**：旧版本 key 不删除、随 TTL 自然过期，避免了 `SCAN`+`DEL` 的复杂度与风险

@@ -50,6 +50,7 @@ public class ReviewService {
     private final AuditService auditService;
     private final AppConfigService appConfigService;
     private final UserMapper userMapper;
+    private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
 
     /**
      * 审核凭证 approve/reject。
@@ -111,6 +112,8 @@ public class ReviewService {
         });
 
         finalizeTaskIfNeeded(task, reviewerId, httpReq);
+        // 审核结果可能推进任务状态（REVIEWING / SETTLED / EXPIRED）→ 失效任务缓存
+        taskCacheService.onTaskChanged(task.getId());
     }
 
     /**
@@ -154,6 +157,8 @@ public class ReviewService {
                 }
             }
         }
+        // 收尾可能改变任务状态（REVIEWING / SETTLED / EXPIRED）→ 失效列表缓存
+        taskCacheService.onListChanged();
     }
 
     private void settleApproved(Task task, Long operatorId, HttpServletRequest httpReq) {

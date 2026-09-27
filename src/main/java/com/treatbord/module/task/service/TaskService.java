@@ -37,6 +37,7 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final TaskStatusLogMapper taskStatusLogMapper;
     private final TaskClaimMapper taskClaimMapper;
+    private final TaskCacheService taskCacheService;
     private final com.treatbord.module.submission.mapper.TaskSubmissionMapper submissionMapper;
     private final UserService userService;
     private final AuditService auditService;
@@ -74,6 +75,8 @@ public class TaskService {
         taskMapper.insert(task);
 
         auditService.record(publisherId, "CREATE_TASK", "task", task.getId(), "发布任务: " + req.getTitle(), httpReq);
+        // 新任务会出现在列表里 → 失效列表缓存（详情尚未缓存，无需处理）
+        taskCacheService.onListChanged();
         return task.getId();
     }
 
@@ -103,6 +106,12 @@ public class TaskService {
      * 查询前惰性兜底：过期的 OPEN 任务置 EXPIRED。
      */
     public PageResult<TaskVO> list(String status, String keyword, long page, long pageSize) {
+        // Cache-Aside：先查缓存（key 含列表版本号，任何写操作都会让旧 key 失效）
+        String cacheKey = taskCacheService.listKey(status, keyword, page, pageSize);
+        var cached = taskCacheService.getList(cacheKey);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
         // 过期统一由 ScheduledTasks.expireTasks() 处理（逐条 CAS + 审计），读接口不再写库
         Page<Task> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<Task> qw = new LambdaQueryWrapper<Task>()
@@ -121,7 +130,9 @@ public class TaskService {
                 .collect(Collectors.toList());
         fillPublisherNickname(vos);
 
-        return PageResult.of(vos, result.getTotal(), page, pageSize);
+        PageResult<TaskVO> pageResult = PageResult.of(vos, result.getTotal(), page, pageSize);
+        taskCacheService.putList(cacheKey, pageResult);
+        return pageResult;
     }
 
     /**
@@ -130,13 +141,26 @@ public class TaskService {
      * @param currentUserId 当前登录用户（可空：匿名浏览）
      */
     public TaskVO detail(Long taskId, Long currentUserId) {
-        Task task = taskMapper.selectById(taskId);
-        if (task == null) {
-            throw new BusinessException(ResultCode.TASK_NOT_FOUND);
+        // Cache-Aside：缓存"共享部分"（含发布者昵称）；claimedByMe 是每用户字段，命中后单独补算
+        TaskVO vo = null;
+        var cached = taskCacheService.getDetail(taskId);
+        if (cached.isPresent()) {
+            if (!cached.get().isExists()) {
+                throw new BusinessException(ResultCode.TASK_NOT_FOUND); // 空值缓存命中（防穿透）
+            }
+            vo = cached.get().getVo();
         }
-        TaskVO vo = TaskVO.from(task);
-        User publisher = userService.getById(task.getPublisherId());
-        vo.setPublisherNickname(publisher.getNickname());
+        if (vo == null) {
+            Task task = taskMapper.selectById(taskId);
+            if (task == null) {
+                taskCacheService.putDetailAbsent(taskId);
+                throw new BusinessException(ResultCode.TASK_NOT_FOUND);
+            }
+            vo = TaskVO.from(task);
+            User publisher = userService.getById(task.getPublisherId());
+            vo.setPublisherNickname(publisher.getNickname());
+            taskCacheService.putDetail(taskId, vo);
+        }
 
         if (currentUserId != null) {
             int active = taskClaimMapper.countActiveClaim(taskId, currentUserId);
@@ -165,6 +189,8 @@ public class TaskService {
         }
         writeTaskLog(taskId, task.getStatus(), TaskStatus.CANCELLED.name(), operatorId, "发布者取消");
         auditService.record(operatorId, "CANCEL_TASK", "task", taskId, "取消任务", httpReq);
+        // 任务状态已变 → 失效该任务详情 + 列表缓存
+        taskCacheService.onTaskChanged(taskId);
     }
 
     /** 写任务状态审计 */

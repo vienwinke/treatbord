@@ -50,6 +50,7 @@ public class SubmissionTxService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
 
     /**
      * 事务内写入凭证：权威校验 → 覆盖/新建 submission → CAS 流转 → 审核窗口 → 状态留痕 → 提交后审计与通知。
@@ -135,6 +136,9 @@ public class SubmissionTxService {
                         submittedTask.getId());
             }
         });
+
+        // 提交可能改变任务状态（首次接取时任务已是 IN_PROGRESS，但列表页需刷新）→ 失效任务缓存
+        taskCacheService.onTaskChanged(claim.getTaskId());
     }
 
     private String serializeFileIds(java.util.List<Long> fileIds) {

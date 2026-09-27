@@ -42,6 +42,7 @@ public class ScheduledTasks {
     private final NotificationService notificationService;
     private final ReviewService reviewService;
     private final UserMapper userMapper;
+    private final com.treatbord.module.task.service.TaskCacheService taskCacheService;
 
     /** 分批处理的批大小：避免一次性把全量数据读进内存（OOM 隐患） */
     private static final int BATCH_SIZE = 500;
@@ -101,6 +102,9 @@ public class ScheduledTasks {
             if (batch.size() < BATCH_SIZE) {
                 break;
             }
+        }
+        if (n > 0) {
+            taskCacheService.onListChanged(); // 任务状态变了 → 列表缓存失效
         }
         return n;
     }

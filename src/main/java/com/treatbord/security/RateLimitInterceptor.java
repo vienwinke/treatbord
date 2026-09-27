@@ -3,6 +3,7 @@ package com.treatbord.security;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpMethod;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String scope = resolveScope(request.getRequestURI());
+        String scope = resolveScope(request);
         if (scope == null) {
             return true;
         }
@@ -31,7 +32,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    private String resolveScope(String uri) {
+    /**
+     * 解析限流场景；返回 null 表示不限流。
+     * 注意：{@code /api/tasks} 需要区分方法——GET 是公开浏览（不限流），POST 是发布（限流）。
+     */
+    private String resolveScope(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+
         if (uri.equals("/api/auth/login") || uri.equals("/api/auth/account/login")) {
             return "login";
         }
@@ -43,6 +51,20 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
         if (uri.equals("/api/files")) {
             return "upload";
+        }
+        // 发帖/举报/互评：写操作限流（防刷、反垃圾）
+        if (HttpMethod.POST.matches(method) && uri.equals("/api/tasks")) {
+            return "taskcreate";
+        }
+        if (HttpMethod.POST.matches(method) && uri.equals("/api/reports")) {
+            return "report";
+        }
+        if (HttpMethod.POST.matches(method) && uri.equals("/api/reviews")) {
+            return "review";
+        }
+        // 通知查询/已读（小程序会轮询）
+        if (uri.startsWith("/api/notifications")) {
+            return "notify";
         }
         // 凭证/头像直读路径（无鉴权）也要有限流兜底
         if (uri.startsWith("/files/")) {

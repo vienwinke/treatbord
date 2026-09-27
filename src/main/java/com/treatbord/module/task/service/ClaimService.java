@@ -44,6 +44,7 @@ public class ClaimService {
 
     private final TaskMapper taskMapper;
     private final TaskClaimMapper taskClaimMapper;
+    private final TaskCacheService taskCacheService;
     private final ClaimStatusLogMapper claimStatusLogMapper;
     private final TaskService taskService;
     private final UserService userService;
@@ -123,6 +124,9 @@ public class ClaimService {
         AfterCommit.run(() -> auditService.record(userId, "CLAIM_TASK", "task", taskId,
                 "接取任务 reward=" + claim.getReward(), httpReq));
 
+        // 名额与任务状态已变 → 失效任务缓存
+        taskCacheService.onTaskChanged(taskId);
+
         return claim.getId();
     }
 
@@ -148,6 +152,8 @@ public class ClaimService {
 
         writeClaimLog(claimId, ClaimStatus.CLAIMED.name(), ClaimStatus.CANCELLED.name(), userId, "用户取消接取");
         AfterCommit.run(() -> auditService.record(userId, "CANCEL_CLAIM", "claim", claimId, "取消接取", httpReq));
+        // 名额已回减 → 失效任务缓存
+        taskCacheService.onTaskChanged(claim.getTaskId());
     }
 
     /**
