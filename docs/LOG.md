@@ -372,3 +372,53 @@ mvn -s settings-mirror.xml spring-boot:run
 
 - **长事务**：`SubmissionService.submit()` 中 `contentSecurityService.checkText()` 是网络调用，仍在事务内持有连接 → 待拆为"非事务编排 + 事务内 DB 方法"（新 Bean 或 `TransactionTemplate`）
 - **文档修正**：README 技术栈表中 "Flyway V1~V4" 应为 **V1~V5**
+---
+
+# 📅 2026-09-27 · 升级批次 B1：测试体系与 CI
+
+## 一、背景
+
+升级路线 W1 第一项：项目此前 **0 个测试、无 CI**，所有修复只靠人工冒烟验证，无法防回归。本批建立测试体系。
+
+## 二、新增内容
+
+| 类型 | 文件 | 用例数 | 覆盖 |
+|---|---|---|---|
+| 纯单测 | `TaskStatusTest` / `ClaimStatusTest` | 36 | 状态机合法流转、非法流转一律 409、终态不可再流转、`of()` 解析 |
+| 纯单测 | `PasswordEncoderTest` | 5 | BCrypt 格式、加盐唯一、旧 SHA-256 可校验且标记升级、pepper 隔离、空值/非法哈希 |
+| 纯单测 | `JwtUtilTest` | 7 | 签发解析回读、jti 唯一、篡改/换密钥/换签发者/过期均无效 |
+| 纯单测 | `FileValidationServiceTest` | 6 | 真实 PNG/JPG/WEBP 通过、伪装扩展名 4001、非白名单 4001、超限 4002、空文件 400、头截断拒绝 |
+| 集成测试 | `ClaimConcurrencyTest` | 2 | **20 线程抢 5 名额防超卖**、同一用户并发重复接取只成功一次 |
+| 集成测试 | `IdorAuthorizationTest` | 4 | 取消他人接取 403、非发布者审核 403、非当事人查看详情 403、非发布者取消任务/查列表 403 |
+| 集成测试 | `StateMachineIntegrationTest` | 5 | 取消后提交 3003、通过后复审 3004、取消后接取 2002、自接自单 2005、通过后驳回 3004 |
+| 测试基类 | `support/AbstractIntegrationTest` | — | `@SpringBootTest` + `@ActiveProfiles("test")`，造数 + **物理清理测试数据** |
+| 测试配置 | `src/test/resources/application-test.yml` | — | 指向 `treatbord_test` 独立库（环境变量注入账号密码），不触碰演示库 |
+| CI | `.github/workflows/ci.yml` | — | MySQL 8.4 + Redis 8 service 容器 + JDK 21 + `mvn -B verify` |
+
+## 三、验证结果
+
+```
+mvn -s settings-mirror.xml test
+→ Tests run: 65, Failures: 0, Errors: 0, Skipped: 0
+→ BUILD SUCCESS
+[并发验收] 线程=20 名额=5 成功=5 名额已满=15 claimed_count=5
+```
+
+| 断言 | 结果 |
+|---|---|
+| 成功接取数 = 名额（5） | ✅ 零超卖 |
+| 其余 15 次均以「名额已满」失败 | ✅ 无其他异常类型 |
+| `claimed_count` = 5 = `task_claim` 行数 | ✅ 计数与实际一致 |
+
+**运行方式（本地）**：
+```bash
+cd ~/Project/treatbord
+set -a && source .env.local && set +a
+export MYSQL_DB=treatbord_test
+mvn -s settings-mirror.xml test
+```
+
+## 四、遗留
+
+- CI 首次运行需在 GitHub Actions 上验证（本地无法执行 workflow）
+- B2 待办：定时任务分批处理、核心 SQL 的 `EXPLAIN` 复核
