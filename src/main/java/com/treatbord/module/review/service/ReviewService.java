@@ -1,6 +1,7 @@
 package com.treatbord.module.review.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.treatbord.common.AfterCommit;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
 import com.treatbord.module.audit.service.AuditService;
@@ -53,7 +54,7 @@ public class ReviewService {
     /**
      * 审核凭证 approve/reject。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void review(Long claimId, Long reviewerId, String action, String note,
                        HttpServletRequest httpReq) {
         TaskClaim claim = claimService.requireClaim(claimId);
@@ -95,15 +96,19 @@ public class ReviewService {
 
         claimService.writeClaimLog(claimId, claim.getStatus(), target.name(), reviewerId,
                 "审核" + (target == ClaimStatus.APPROVED ? "通过" : "驳回") + (note == null ? "" : ": " + note));
-        auditService.record(reviewerId, "REVIEW_" + target.name(), "claim", claimId,
-                "审核凭证: " + action, httpReq);
-        notificationService.notify(claim.getUserId(),
-                com.treatbord.module.notify.entity.Notification.TYPE_REVIEW_RESULT,
-                target == ClaimStatus.APPROVED ? "凭证审核通过" : "凭证被驳回",
-                "你的任务《" + task.getTitle() + "》凭证" +
-                        (target == ClaimStatus.APPROVED ? "已通过审核" : "被驳回" +
-                        (note == null ? "" : "，原因：" + note)),
-                task.getId());
+        // 通知与审计属于「非核心、可失败」的旁路操作：注册到【事务提交后】执行，
+        // 避免它们延长事务、长时间占用连接与行锁；事务回滚时也不会留下"审核成功"的假记录。
+        String notifyTitle = target == ClaimStatus.APPROVED ? "凭证审核通过" : "凭证被驳回";
+        String notifyContent = "你的任务《" + task.getTitle() + "》凭证"
+                + (target == ClaimStatus.APPROVED ? "已通过审核"
+                        : "被驳回" + (note == null ? "" : "，原因：" + note));
+        AfterCommit.run(() -> {
+            notificationService.notify(claim.getUserId(),
+                    com.treatbord.module.notify.entity.Notification.TYPE_REVIEW_RESULT,
+                    notifyTitle, notifyContent, task.getId());
+            auditService.record(reviewerId, "REVIEW_" + target.name(), "claim", claimId,
+                    "审核凭证: " + action, httpReq);
+        });
 
         finalizeTaskIfNeeded(task, reviewerId, httpReq);
     }
@@ -112,7 +117,7 @@ public class ReviewService {
      * 任务收尾判定：审核（本类 review）与定时任务（审核超时自动通过 / 接取超时取消）共用。
      * 外部（定时任务）调用时 @Transactional 生效；review() 内部调用时已在同一事务中。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void finalizeTaskIfNeeded(Task task, Long operatorId, HttpServletRequest httpReq) {
         long active = taskClaimMapper.selectCount(new LambdaQueryWrapper<TaskClaim>()
                 .eq(TaskClaim::getTaskId, task.getId())
@@ -141,11 +146,11 @@ public class ReviewService {
                 if (cas > 0) {
                     taskService.writeTaskLog(task.getId(), task.getStatus(), TaskStatus.EXPIRED.name(),
                             operatorId, "无凭证审核通过");
-                    notificationService.notify(task.getPublisherId(),
+                    AfterCommit.run(() -> notificationService.notify(task.getPublisherId(),
                             com.treatbord.module.notify.entity.Notification.TYPE_TASK_EXPIRED,
                             "任务已过期",
                             "任务《" + task.getTitle() + "》无有效完成，已标记过期",
-                            task.getId());
+                            task.getId()));
                 }
             }
         }
@@ -176,8 +181,8 @@ public class ReviewService {
         if (cas > 0) {
             taskService.writeTaskLog(task.getId(), TaskStatus.REVIEWING.name(), TaskStatus.SETTLED.name(),
                     operatorId, "结算生成");
-            auditService.record(operatorId, "SETTLE", "task", task.getId(),
-                    "生成 " + approvedClaims.size() + " 笔结算", httpReq);
+            AfterCommit.run(() -> auditService.record(operatorId, "SETTLE", "task", task.getId(),
+                    "生成 " + approvedClaims.size() + " 笔结算", httpReq));
         }
     }
 }

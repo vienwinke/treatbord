@@ -53,7 +53,7 @@ public class AdminService {
     /**
      * 下架违规任务（→ CANCELLED + 通知发布者）。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void offlineTask(Long taskId, Long adminId, HttpServletRequest httpReq) {
         Task task = taskMapper.selectById(taskId);
         if (task == null) {
@@ -94,7 +94,9 @@ public class AdminService {
 
     /**
      * 处理举报（1=已处理 / 2=驳回）。
+     * 补事务：保证「置状态 + 记处理人」的原子性，避免查-改之间出现中间状态。
      */
+    @Transactional(rollbackFor = Exception.class)
     public void handleReport(Long reportId, Integer status, String note, Long adminId,
                              HttpServletRequest httpReq) {
         Report report = reportMapper.selectById(reportId);
@@ -113,7 +115,7 @@ public class AdminService {
     /**
      * 封禁用户：status 0→1 + 踢下线（将该用户所有 jti 加入黑名单）。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void banUser(Long userId, Long adminId, HttpServletRequest httpReq) {
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -142,6 +144,8 @@ public class AdminService {
         log.info("封禁用户 {} 并踢下线，处理 jti 数={}", userId, jtis == null ? 0 : jtis.size());
     }
 
+    /** 解封用户：status 1→0（补事务，与 banUser 对称）。 */
+    @Transactional(rollbackFor = Exception.class)
     public void unbanUser(Long userId, Long adminId, HttpServletRequest httpReq) {
         User user = userMapper.selectById(userId);
         if (user == null) {

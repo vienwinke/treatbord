@@ -148,7 +148,7 @@ public class TaskService {
     /**
      * 发布者取消任务：仅 OPEN/IN_PROGRESS 可取消。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void cancel(Long taskId, Long operatorId, HttpServletRequest httpReq) {
         Task task = requireTask(taskId);
         // 归属校验（IDOR 防护）

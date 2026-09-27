@@ -2,6 +2,7 @@ package com.treatbord.module.submission.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.treatbord.common.AfterCommit;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
 import com.treatbord.module.audit.service.AuditService;
@@ -55,7 +56,7 @@ public class SubmissionService {
      * 提交完成凭证：CLAIMED → SUBMITTED（CAS）。
      * 审核前可覆盖：重复提交更新/替换最新一条有效提交。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void submit(Long claimId, Long userId, SubmissionRequest req, HttpServletRequest httpReq) {
         // 1. 归属校验（IDOR）：只能提交自己的接取
         TaskClaim claim = claimService.requireClaim(claimId);
@@ -128,16 +129,18 @@ public class SubmissionService {
                 isCover ? ClaimStatus.SUBMITTED.name() : ClaimStatus.CLAIMED.name(),
                 ClaimStatus.SUBMITTED.name(), userId,
                 isCover ? "覆盖更新凭证" : "提交完成凭证");
-        auditService.record(userId, "SUBMIT", "claim", claimId,
-                isCover ? "覆盖提交凭证" : "提交凭证", httpReq);
-
-        if (!isCover) {
-            notificationService.notify(task.getPublisherId(),
-                    com.treatbord.module.notify.entity.Notification.TYPE_SUBMITTED,
-                    "收到完成凭证",
-                    "用户提交了任务《" + task.getTitle() + "》的完成凭证，请及时审核",
-                    task.getId());
-        }
+        // 审计与通知属旁路操作：移到事务提交后执行
+        AfterCommit.run(() -> {
+            auditService.record(userId, "SUBMIT", "claim", claimId,
+                    isCover ? "覆盖提交凭证" : "提交凭证", httpReq);
+            if (!isCover) {
+                notificationService.notify(task.getPublisherId(),
+                        com.treatbord.module.notify.entity.Notification.TYPE_SUBMITTED,
+                        "收到完成凭证",
+                        "用户提交了任务《" + task.getTitle() + "》的完成凭证，请及时审核",
+                        task.getId());
+            }
+        });
     }
 
     /**

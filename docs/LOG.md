@@ -312,3 +312,63 @@ mvn -s settings-mirror.xml spring-boot:run
 - 新增数据库 `treatbord_test`（建议保留作集成测试库）；`treatbord` 演示库未被触碰
 - 冒烟产生的上传文件已清理；18080 测试实例已停止
 - 本次改动集中在 15 个文件 + 2 个新增文件，未提交前可用 `git checkout -- <file>` 回滚
+
+---
+
+# 📅 2026-09-27 工作记录：Spring 事务收口（旁路操作外移 + 回滚规则统一）
+
+## 一、背景
+
+承接 09-26 的缺陷批修，本轮把 **Spring / 事务** 这一块做完整：统一"事务内不做旁路操作"的模式，并补齐管理员接口缺失的事务保护。
+
+## 二、改动清单（5 文件修改 + 1 新增，+48 / −34）
+
+| 文件 | 变更 | 内容 |
+|---|---|---|
+| `common/AfterCommit.java`（新增，50 行） | 新 | 事务提交后回调工具：有事务则注册 `afterCommit`，无事务则直接执行，回调异常只记日志 |
+| `task/service/ClaimService.java` | +12/−8 | `claim()` / `cancelClaim()` 的审计移到提交后；2 处 `rollbackFor` |
+| `task/service/TaskService.java` | +2/−2 | `cancel()` 加 `rollbackFor` |
+| `submission/service/SubmissionService.java` | +25/−14 | `submit()` 的审计 + 发布者通知移到提交后；加 `rollbackFor` |
+| `review/service/ReviewService.java` | +35/−18 | `review()` 的通知+审计、收尾的 EXPIRED 通知、结算的 SETTLE 审计全部移到提交后 |
+| `admin/service/AdminService.java` | +8/−4 | `handleReport()` / `unbanUser()` 补事务；4 处注解统一 |
+
+**判断标准（写进代码注释）**：影响业务一致性的（状态留痕 `claim_status_log`、结算 `settlement`）**留在事务内**；旁路可失败的（通知、审计 `audit_log`）**移到提交后**。
+
+**统一规则**：全项目 **10 处 `@Transactional`** 全部改为 `@Transactional(rollbackFor = Exception.class)`（默认只回滚 `RuntimeException`/`Error`，受检异常会静默提交）。
+
+## 三、验证（独立库 `treatbord_test` + 18080 实例，未触碰演示库）
+
+| 流程 | 断言 | 结果 |
+|---|---|---|
+| 编译 | `mvn -s settings-mirror.xml clean compile` | BUILD SUCCESS（106 文件） |
+| A 接取→提交→通过 | task=`SETTLED`、settlement 1 笔；审计 `CLAIM_TASK`/`SUBMIT`/`REVIEW_APPROVED`/`SETTLE` **各 1**、通知 1 | ✅ |
+| B 提交→驳回 | claim=`REJECTED`、信用分 **100→95**、通知 1、`REVIEW_REJECTED`=1 | ✅ |
+| C 接取超时（改 create_time 为 73h 前） | claim=`CANCELLED` → task=`EXPIRED` → 发布者通知 **+1**，日志 `IN_PROGRESS->EXPIRED/无凭证审核通过` | ✅ |
+| D 取消接取 | claim=`CANCELLED`、`claimed_count` 1→0、`CANCEL_CLAIM` 审计=1 | ✅ |
+
+**顺序证据**：审核请求的 SQL 序列中，通知与 REVIEW 审计是该请求的**最后两条**语句（事务内写入之后），符合"提交后执行"。
+
+## 四、当前技术栈版本（实测解析，非文档口径）
+
+| 组件 | 版本 | 说明 |
+|---|---|---|
+| Spring Boot | **3.5.16** | `spring-boot-starter-parent` 统一管理 |
+| Java | 21（JDK 21.0.12.1） | |
+| Spring Framework | 6.2.19 | spring-tx / spring-aop 等 |
+| MyBatis-Plus | 3.5.12 | starter + jsqlparser |
+| MySQL Connector/J | 9.7.0 | runtime |
+| Flyway | 11.7.2 | core + mysql |
+| spring-security-crypto | 6.5.11 | 仅用 BCrypt |
+| jjwt | 0.12.6 | JWT |
+| springdoc-openapi | 2.8.9 | Swagger UI |
+| aliyun-sdk-oss | 3.18.5 | 对象存储 |
+| Micrometer | 1.15.12 | actuator 传递依赖，未接 Prometheus |
+| Maven | 3.9.12 | WSL |
+| 运行环境 | MySQL 8.4 / Redis 8 | WSL 内 |
+
+> 注：`org.aspectj:aspectjweaver` **不在 classpath**，因此项目里写 `@Aspect` 不会生效；要引入声明式切面需先加 `spring-boot-starter-aop`。
+
+## 五、遗留
+
+- **长事务**：`SubmissionService.submit()` 中 `contentSecurityService.checkText()` 是网络调用，仍在事务内持有连接 → 待拆为"非事务编排 + 事务内 DB 方法"（新 Bean 或 `TransactionTemplate`）
+- **文档修正**：README 技术栈表中 "Flyway V1~V4" 应为 **V1~V5**

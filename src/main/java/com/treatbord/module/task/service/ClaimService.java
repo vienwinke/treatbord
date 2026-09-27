@@ -2,6 +2,7 @@ package com.treatbord.module.task.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.treatbord.common.AfterCommit;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.PageResult;
 import com.treatbord.common.ResultCode;
@@ -54,7 +55,7 @@ public class ClaimService {
      * 顺序：原子扣减 → 快照 → 归属/信用校验 → 插 claim → 任务 OPEN→IN_PROGRESS。
      * 唯一索引 (task_id,user_id) 兜底，冲突回滚（含原子扣减）。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long claim(Long taskId, Long userId, HttpServletRequest httpReq) {
         // 1. 原子扣减名额（防超卖第一道防线）
         int updated = taskMapper.incrementClaimedCount(taskId);
@@ -118,8 +119,9 @@ public class ClaimService {
 
         // 8. 接取状态审计
         writeClaimLog(claim.getId(), null, ClaimStatus.CLAIMED.name(), userId, "接取任务");
-        auditService.record(userId, "CLAIM_TASK", "task", taskId,
-                "接取任务 reward=" + claim.getReward(), httpReq);
+        // 审计属旁路操作：移到事务提交后执行（不占用事务时间，回滚时也不会留下假记录）
+        AfterCommit.run(() -> auditService.record(userId, "CLAIM_TASK", "task", taskId,
+                "接取任务 reward=" + claim.getReward(), httpReq));
 
         return claim.getId();
     }
@@ -127,7 +129,7 @@ public class ClaimService {
     /**
      * 取消接取：仅 CLAIMED（未提交）可取消；claimed_count 回减。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void cancelClaim(Long claimId, Long userId, HttpServletRequest httpReq) {
         TaskClaim claim = requireClaim(claimId);
         // 归属校验（IDOR）
@@ -145,7 +147,7 @@ public class ClaimService {
         taskMapper.decrementClaimedCount(claim.getTaskId());
 
         writeClaimLog(claimId, ClaimStatus.CLAIMED.name(), ClaimStatus.CANCELLED.name(), userId, "用户取消接取");
-        auditService.record(userId, "CANCEL_CLAIM", "claim", claimId, "取消接取", httpReq);
+        AfterCommit.run(() -> auditService.record(userId, "CANCEL_CLAIM", "claim", claimId, "取消接取", httpReq));
     }
 
     /**
