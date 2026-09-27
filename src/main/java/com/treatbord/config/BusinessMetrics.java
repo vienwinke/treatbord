@@ -3,6 +3,7 @@ package com.treatbord.config;
 import com.treatbord.common.ResultCode;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -77,9 +78,15 @@ public class BusinessMetrics {
                 .tag("result", result)
                 .register(registry)
                 .increment();
-        if (waitSeconds != null && waitSeconds >= 0) {
-            registry.timer("treatbord.review.wait",
-                    "description", "凭证提交到审核的等待时长").record(Duration.ofSeconds(waitSeconds));
+        if (waitSeconds != null) {
+            // 说明：task_claim.submitted_at 为秒精度 DATETIME，MySQL 写入时会四舍五入，
+            // 紧接着审核时算出的差值可能是 -1s（"负等待"）。这属于时间精度噪声，按 0 计，
+            // **不能丢弃样本**——否则指标会随机消失，排查问题时产生误导。
+            long seconds = Math.max(0L, waitSeconds);
+            Timer.builder("treatbord.review.wait")
+                    .description("凭证提交到审核的等待时长（秒）")
+                    .register(registry)
+                    .record(Duration.ofSeconds(seconds));
         }
     }
 

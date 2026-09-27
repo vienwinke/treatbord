@@ -831,3 +831,45 @@ onImgError(e) {                       // <image binderror>
   清理 2457 个标记文件 + `*.lastUpdated` 后通过 —— 这是"移动本地 Maven 仓库"的经典坑，值得记住
 
 **文档同步**：README（初始化步骤改为"只需建库，Flyway 自动迁移" + 目录树）、DB_DESIGN（DDL 指向 `db/migration`）、RUNBOOK（目录树）、LEARNING_PLAN / LEARNING_PROGRESS（索引学习素材指向 V1/V6）
+
+
+---
+
+# 📅 2026-09-27 · 上线收口：文件清单 + 仓库卫生 + 最终总检（发现并修复 1 个真 bug）
+
+## 一、最终总检结果
+
+| 检查项 | 结果 |
+|---|---|
+| 编译 / 测试 | BUILD SUCCESS · **93/93 通过**（`mvn -o` 离线） |
+| 硬编码凭证扫描 | **0 命中** |
+| 调试残留（System.out / TODO / console.log / printStackTrace） | **各 0** |
+| `${}` 拼接 SQL / `@Aspect`（weaver 缺失会空转） | **各 0** |
+| 生产配置 | springdoc 关闭 · 签名强制 · 密钥全走环境变量 · StartupValidator 11 项必填 |
+
+## 二、🔴 发现并修复 1 个真 bug：指标会"静默消失"
+
+**现象**：`BusinessMetricsTest.reviewMetrics` **必现失败**（连跑 3 次全失败）——`treatbord.review.wait` Timer 没被创建。
+
+**根因（两层）**：
+1. `task_claim.submitted_at` 是**秒精度 `datetime`**，MySQL 写入时**四舍五入**（`22:58:41.6`→`22:58:42`）；
+   审核紧跟其后（`22:58:41.9`），差值算出 **`waitSeconds = -1`**，而守卫条件是 `waitSeconds >= 0` → **样本被静默丢弃**
+   → 危害：**指标会随机消失**，"看不到数据"极易被误读为"没问题"（比抛异常更隐蔽）
+2. `registry.timer(name, "description", "...")` —— Micrometer 的 varargs 是**键值标签对**，
+   于是 meter 上挂了个假标签 `description=凭证提交到审核的等待时长`
+
+**修复**：负值按 0 计（不丢样本）+ 改用 `Timer.builder(...).description(...)`
+**验证**：修复前 3/3 失败 → 修复后 3/3 通过 → 全量 93/93 绿
+
+## 三、仓库卫生：移除 2 个不该入仓的文件
+
+| 文件 | 处理 | 原因 |
+|---|---|---|
+| `miniprogram/project.private.config.json` | `git rm --cached`（本地保留）+ `.gitignore` | 微信私有配置（本地调试条件），官方约定不入仓 |
+| `miniprogram/.cloudbase/container/debug.json` | `git rm` + 删除 | 云开发调试残留，项目未用云开发 |
+
+## 四、新增文档
+
+- `docs/GO_LIVE_CHECKLIST.md`：**上线所需文件清单** + 生产环境变量清单（11 项必需）+ **缺失的部署产物**（Dockerfile/compose/nginx/systemd/备份 cron）+ 微信侧配置 + 上线前检查项
+- `docs/FINAL_REVIEW.md`：本次总检报告（含上述 bug 的根因与三条教训）
+- `.env.example`：补上 `STORAGE_SIGN_SECRET`（生产必需项，原先模板缺失）

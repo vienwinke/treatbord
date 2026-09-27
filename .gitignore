@@ -29,3 +29,8 @@ uploads/
 
 # 本地预览产物（勿提交）
 .preview/
+
+# 微信小程序：私有配置（含本地调试条件，官方约定不入仓）
+miniprogram/project.private.config.json
+# 微信云开发调试残留
+miniprogram/.cloudbase/
