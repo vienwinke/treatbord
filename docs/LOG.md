@@ -812,3 +812,22 @@ onImgError(e) {                       // <image binderror>
 
 - 最终回归：`mvn test` → **Tests run: 93, Failures: 0, Errors: 0** · BUILD SUCCESS
 - 压测/演练数据见上；冒烟数据已清理（压测用户 0 残留、限流阈值已恢复）
+
+---
+
+# 📅 2026-09-27 · 仓库卫生：消除"双真相源" + 本地仓库外迁
+
+| 项 | 处理 | 原因 |
+|---|---|---|
+| `database/schema.sql` + `database/seed.sql`（已跟踪） | **删除**，同步修正 4 份文档 6 处引用 | 与 Flyway 迁移重复建 14 张表且**内容已漂移**（12.2KB vs 11.3KB）→ 双真相源，照它建库会与迁移不一致 |
+| 项目内 `.m2/`（**293M**） | 迁到 `~/.m2/repository`，`settings-mirror.xml` 指向新位置 | 293M 会随项目拷贝/备份；迁出后项目目录瘦身 |
+| `app-run.log`（9-25） | 删除 | 过期运行日志 |
+| `.preview/`（392K） | **保留** | 内含手写 `tb-check.js` 与设计预览页，不是纯生成产物 |
+
+**关键证据**：
+- 迁移后 `mvn -o -s settings-mirror.xml test` → **93 用例全绿（离线模式）**，证明依赖完整、不再需要项目内仓库
+- 离线首跑报 `spring-boot-starter-parent:pom:3.5.16 (present, but unavailable)`：
+  原因是复制后 `_remote.repositories`（**溯源标记**）记录的来源仓库与新位置不匹配；
+  清理 2457 个标记文件 + `*.lastUpdated` 后通过 —— 这是"移动本地 Maven 仓库"的经典坑，值得记住
+
+**文档同步**：README（初始化步骤改为"只需建库，Flyway 自动迁移" + 目录树）、DB_DESIGN（DDL 指向 `db/migration`）、RUNBOOK（目录树）、LEARNING_PLAN / LEARNING_PROGRESS（索引学习素材指向 V1/V6）

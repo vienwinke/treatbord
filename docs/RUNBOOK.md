@@ -126,7 +126,6 @@ treatbord/
 ├── start-dev.sh              ← 启动脚本
 ├── settings-mirror.xml       ← Maven 镜像配置（勿提交）
 ├── .env.local                ← 本地密钥（勿提交）
-├── database/                 ← schema.sql / seed.sql（手工基线）
 ├── docs/                     ← 设计/安全/接口/方案文档
 ├── src/main/java/com/treatbord/
 │   ├── common/               ← Result/异常/脱敏工具

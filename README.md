@@ -203,9 +203,12 @@ JDK 21 · Maven 3.9+ · MySQL 8 · Redis · 微信开发者工具
 ### 1. 初始化数据库
 
 ```bash
-mysql -u root -p < database/schema.sql   # 建库建表（14 张）
-mysql -u root -p treatbord < database/seed.sql   # 初始配置
+# 只需建库；建表/索引/种子数据由 Flyway 在应用启动时自动迁移（V1~V8）
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS treatbord DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 ```
+
+> **单一真相源**：DDL 与种子数据的唯一权威来源是 `src/main/resources/db/migration/`（Flyway V1~V8）。
+> 历史上手工维护的 `database/schema.sql` 已删除，避免与迁移脚本漂移。
 
 ### 2. 配置环境变量
 
@@ -262,7 +265,6 @@ treatbord/
 │   ├── application*.yml     # 多环境配置
 │   └── db/migration/        # Flyway 迁移脚本 V1~V8
 ├── miniprogram/             # 微信小程序（16 页面）
-├── database/                # 建库脚本与种子数据
 └── docs/                    # 设计文档（8 份）
 ```
 

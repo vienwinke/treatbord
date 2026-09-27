@@ -1,7 +1,7 @@
 # Treatbord 数据库设计文档
 
 > 依据方案大纲 `AGENTS.md` 与上架安全审核 `docs/SECURITY_REVIEW.md` 整理。
-> 状态：设计稿 v0.1（已定稿关键取舍，DDL 见 `database/schema.sql`）
+> 状态：设计稿 v0.1（已定稿关键取舍，DDL 见 `src/main/resources/db/migration/`）
 
 ---
 
@@ -27,8 +27,8 @@
 
 | 文件 | 用途 | 执行身份 |
 |---|---|---|
-| `database/schema.sql` | 建库、建表、建索引、建账号并授权 | 管理员（root 级） |
-| `database/seed.sql` | 初始化基础数据（admin 账号、app_config 配置项等） | 管理员或 app_user |
+| `src/main/resources/db/migration/V1__init_schema.sql` | 建库、建表、建索引（Flyway 自动执行） | 应用启动时由 Flyway 执行 |
+| `V2__seed_config.sql` / `V4__add_user_account.sql` | 初始化基础数据（app_config 配置项、账号体系） | 同上（Flyway） |
 
 > schema.sql 内含"重建"操作（`DROP DATABASE IF EXISTS`），**仅限开发/测试环境**执行；生产环境应使用增量迁移脚本。
 

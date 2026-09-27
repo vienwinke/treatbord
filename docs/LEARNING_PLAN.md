@@ -79,7 +79,7 @@ Maven        ░░░░░░░░░░░░░░░░░░░░   0/8
 | **MyBatis-Plus** | `TaskMapper`（注解 SQL）、`MybatisPlusConfig`（分页插件）| P0 |
 | **乐观锁** | `Task.version` + `@Version` | P1 |
 | **逻辑删除** | 所有实体的 `@TableLogic deleted` | P1 |
-| **MySQL 索引** | `database/schema.sql` 里的唯一索引/复合索引 | P0 ⭐ |
+| **MySQL 索引** | `V1__init_schema.sql` 的索引定义 + `V6__add_claim_scan_indexes.sql` | P0 ⭐ |
 | **并发控制** | `TaskMapper.incrementClaimedCount()` 原子 SQL + CAS | P0 ⭐⭐ |
 | **Redis 应用** | `TokenBlacklistService`（黑名单）、`RateLimitService`（限流）| P0 |
 | **JWT** | `JwtUtil`、`AuthInterceptor` | P0 |

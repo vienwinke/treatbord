@@ -189,7 +189,7 @@ m2     700.138790605216   729.9856640713663  随机截距+交互项
 | D3 | 泛型 + Stream | 用 Stream 重写 Treatbord 里一段 for 循环 | `TaskService` |
 | D4 | 异常体系 | 不看代码，自己写一套 `BusinessException` + 全局处理器 | `common/GlobalExceptionHandler` |
 | D5 | 并发基础 | 多线程抢票 demo **复现超卖**，再用原子 SQL 修掉 | `TaskMapper.incrementClaimedCount` ⭐ |
-| D6 | MySQL 索引 | 造 10 万行数据，`EXPLAIN` 对比有无索引 | `database/schema.sql` 的索引设计 |
+| D6 | MySQL 索引 | 造 10 万行数据，`EXPLAIN` 对比有无索引 | `db/migration` 的索引设计 |
 | D7 | 事务与隔离级别 | 复现脏读/不可重复读；逐个检查现有 7 处 `@Transactional` 的边界 | `ClaimService.claim()` / `ReviewService.review()` ⭐ |
 
 **本周唯一硬指标**：`practice/` 目录下 ≥ **7 个能跑的 demo** + 每天一段 3 分钟脱稿复述（录音）。
