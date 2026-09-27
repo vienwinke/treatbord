@@ -1,6 +1,6 @@
 # Treatbord 启动手册（RUNBOOK）
 
-> 面向本地开发环境的启动/停止/排障指南。生产部署见 `docs/STANDARDIZATION_PLAN.md` §5。
+> 面向本地开发环境的启动/停止/排障指南。生产部署见 [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md)。
 
 ---
 

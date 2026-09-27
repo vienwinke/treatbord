@@ -23,7 +23,7 @@ Treatbord 是一个面向微信小程序的任务接取平台。用户可以发�
 
 项目采用**前后端分离**架构：后端提供 RESTful API（33 个接口），前端为微信小程序原生开发（15 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
 
-**规模**：后端 115 个 Java 文件 / 6.9k 行 · 33 个接口 · 14 张表 · 11 份设计文档 · 小程序 15 个页面 · 93 个自动化测试用例
+**规模**：后端 115 个 Java 文件 / 6.9k 行 · 33 个接口 · 14 张表 · 7 份产品文档 · 小程序 15 个页面 · 93 个自动化测试用例
 
 ---
 
@@ -316,11 +316,10 @@ treatbord/
 | [API_DESIGN.md](docs/API_DESIGN.md) | 33 个接口的完整规格（参数/响应/错误码/业务规则）|
 | [DB_DESIGN.md](docs/DB_DESIGN.md) | 14 张表设计、索引策略、设计决策记录 |
 | [SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | 上架前安全审核：越权/注入/文件上传/密钥/可靠性 |
-| [STANDARDIZATION_PLAN.md](docs/STANDARDIZATION_PLAN.md) | 对标企业级工程结构的标准化改造方案 |
-| [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) | 架构重构与技术栈升级方案 |
-| [ROADMAP.md](docs/ROADMAP.md) | 分阶段实现路线与验收标准 |
-| [RUNBOOK.md](docs/RUNBOOK.md) | 启动/停止/排障手册 |
-| [LOG.md](docs/LOG.md) | 开发日志（决策、踩坑、复盘）|
+| [RUNBOOK.md](docs/RUNBOOK.md) | 启动/停止/排障手册（含压测/备份演练记录与运维动作） |
+| [GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md) | **上线清单**：所需文件、生产环境变量、缺失的部署产物 |
+| [CONSISTENCY_CHECKLIST.md](docs/CONSISTENCY_CHECKLIST.md) | 文档 ↔ 代码一致性核对表（数字全部实测） |
+| [FINAL_REVIEW.md](docs/FINAL_REVIEW.md) | 最终代码总检报告（检查项、发现的 bug 与教训） |
 
 ---
 
@@ -384,5 +383,6 @@ MIT
 | 慢接口日志 | `SlowRequestLoggingFilter` | 覆盖 `/files/**`、`/actuator/**` |
 | 慢 SQL 日志 | `SlowSqlInterceptor` | 挂 `StatementHandler`（Executor 4 参 query 在本链路不触发） |
 
-> 详细改动与验证证据见 [docs/LOG.md](docs/LOG.md)；文档与代码一致性核对表见
+> 上线的检查项与结论见 [docs/FINAL_REVIEW.md](docs/FINAL_REVIEW.md) 与
+> [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md)；文档与代码一致性核对表见
 > [docs/CONSISTENCY_CHECKLIST.md](docs/CONSISTENCY_CHECKLIST.md)。

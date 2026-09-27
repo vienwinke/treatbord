@@ -13,7 +13,7 @@
 | Controller 数量 | — | 12 | `find src/main/java -name '*Controller.java'` | — |
 | 小程序页面数 | 15 | 15 | `app.json` 的 `pages` 长度 | ✅ |
 | 业务表数量 | 14 | 14（不含 `flyway_schema_history`） | `information_schema.tables` | ✅ |
-| 设计文档数 | 11 | 11 | `ls docs \| wc -l` | ✅ |
+| 设计文档数 | 7 | 7 | `ls docs \| wc -l` | ✅ |
 | 自动化测试用例 | 93 | 93（20 个测试类） | `mvn test` 输出 / `find src/test -name '*Test.java'` | ✅ |
 | 测试类数量 | 20 | 20 | 同上 | ✅ |
 
@@ -63,7 +63,7 @@ echo "页面数:    $(python3 -c "import json;print(len(json.load(open('miniprog
 echo "迁移脚本:  $(ls src/main/resources/db/migration | wc -l)"
 mvn -s settings-mirror.xml test | grep -E 'Tests run: [0-9]+, Failures'
 # 过期表述自查（应无输出）
-# README 与活文档必须无输出；LOG.md / LEARNING_PROGRESS.md 是历史日志（数字为当日快照），不参与检查
+# README 与活文档必须无输出（开发日志/学习记录等过程文档已移出仓库，不参与检查）
 grep -rn "V1~V4\|32 个接口\|16 个页面\|104 个 Java\|5.5k 行" \
   README.md docs/API_DESIGN.md docs/DB_DESIGN.md docs/RUNBOOK.md docs/SECURITY_REVIEW.md
 ```

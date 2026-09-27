@@ -59,4 +59,4 @@ Timer.builder("treatbord.review.wait")
 | 微信真实凭证未接（AppID/Secret） | P1 | 现走 mock 登录 / 内容安全 | 你（外部） |
 | demo 库 `treatbord` 停在 V4 | P2 | 下次以该库启动会自动迁移到 V8 | 无需处理 |
 | Redis 抖动式不可达（GitHub 推送同源问题） | P3 | 推送需重试 | 网络环境 |
-| 学习线（算法 0 题 / 讲稿未录音） | — | 见 [LEARNING_PROGRESS.md](LEARNING_PROGRESS.md) | 你我 |
+| 学习线（算法 0 题 / 讲稿未录音） | — | 学习记录已移出仓库（本地保留） | 你我 |
