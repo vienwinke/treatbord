@@ -2,13 +2,10 @@ package com.treatbord.module.submission.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.treatbord.common.AfterCommit;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
-import com.treatbord.module.audit.service.AuditService;
 import com.treatbord.module.file.entity.FileRecord;
 import com.treatbord.module.file.mapper.FileRecordMapper;
-import com.treatbord.module.notify.service.NotificationService;
 import com.treatbord.module.security.service.ContentSecurityService;
 import com.treatbord.module.submission.dto.SubmissionRequest;
 import com.treatbord.module.submission.dto.SubmissionVO;
@@ -17,61 +14,59 @@ import com.treatbord.module.submission.mapper.TaskSubmissionMapper;
 import com.treatbord.module.task.entity.Task;
 import com.treatbord.module.task.entity.TaskClaim;
 import com.treatbord.module.task.enums.ClaimStatus;
-import com.treatbord.module.task.mapper.TaskClaimMapper;
 import com.treatbord.module.task.mapper.TaskMapper;
 import com.treatbord.module.task.service.ClaimService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * 凭证服务（docs/API_DESIGN.md §5）。
+ *
+ * <p>事务边界说明：本类**不含** {@code @Transactional}。
+ * `submit()` 是"非事务编排"——先在事务外完成校验与**内容安全检测（网络调用）**，
+ * 再把数据库写入交给独立 Bean {@link SubmissionTxService}，避免长事务（详见该类的类注释）。
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SubmissionService {
 
-    private static final long REVIEW_TIMEOUT_HOURS = 48;
-
     /** 可提交凭证的任务状态（跨聚合校验用） */
-    private static final java.util.Set<String> SUBMITTABLE_TASK_STATUSES =
-            java.util.Set.of("OPEN", "IN_PROGRESS", "REVIEWING");
+    private static final Set<String> SUBMITTABLE_TASK_STATUSES =
+            Set.of("OPEN", "IN_PROGRESS", "REVIEWING");
 
     private final TaskSubmissionMapper submissionMapper;
-    private final TaskClaimMapper taskClaimMapper;
     private final TaskMapper taskMapper;
     private final FileRecordMapper fileRecordMapper;
     private final ClaimService claimService;
     private final ContentSecurityService contentSecurityService;
-    private final NotificationService notificationService;
-    private final AuditService auditService;
+    private final SubmissionTxService submissionTxService;
     private final ObjectMapper objectMapper;
 
     /**
-     * 提交完成凭证：CLAIMED → SUBMITTED（CAS）。
-     * 审核前可覆盖：重复提交更新/替换最新一条有效提交。
+     * 提交完成凭证：CLAIMED → SUBMITTED（CAS），审核前可覆盖。
+     *
+     * <p>三段式：
+     * ① 事务外预校验（归属/状态/任务状态/文件）→ 快速失败，避免为无效请求调用内容安全接口；
+     * ② 事务外内容安全检测（**网络调用**，不占用数据库连接与行锁）；
+     * ③ 事务内写入（{@link SubmissionTxService#persistSubmission}，独立 Bean 使 @Transactional 生效）。
      */
-    @Transactional(rollbackFor = Exception.class)
     public void submit(Long claimId, Long userId, SubmissionRequest req, HttpServletRequest httpReq) {
-        // 1. 归属校验（IDOR）：只能提交自己的接取
+        // ①-1 归属校验（IDOR）：只能提交自己的接取
         TaskClaim claim = claimService.requireClaim(claimId);
         if (!claim.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "只能提交自己的接取凭证");
         }
 
-        // 2. 状态机：仅 CLAIMED / SUBMITTED（覆盖）可提交
+        // ①-2 状态机：仅 CLAIMED / SUBMITTED（覆盖）可提交
         ClaimStatus cur = ClaimStatus.of(claim.getStatus());
-        boolean isCover = cur == ClaimStatus.SUBMITTED; // 审核前覆盖提交
-        if (!(cur == ClaimStatus.CLAIMED || isCover)) {
+        if (!(cur == ClaimStatus.CLAIMED || cur == ClaimStatus.SUBMITTED)) {
             throw new BusinessException(ResultCode.CLAIM_NOT_SUBMITTABLE, "当前状态不可提交凭证");
         }
 
-        // 2.1 跨聚合校验：任务必须仍处于可提交阶段（防对已取消/已过期任务提交凭证）
+        // ①-3 跨聚合校验：任务必须仍处于可提交阶段（防对已取消/已过期任务提交凭证）
         Task task = taskMapper.selectById(claim.getTaskId());
         if (task == null) {
             throw new BusinessException(ResultCode.TASK_NOT_FOUND);
@@ -81,66 +76,14 @@ public class SubmissionService {
                     "任务当前状态（" + task.getStatus() + "）不可提交凭证");
         }
 
-        // 2.2 凭证文件校验：必须存在、属于本人、且未被内容安全判定违规
+        // ①-4 凭证文件校验：必须存在、属于本人、且未被内容安全判定违规
         validateFileIds(req.getFileIds(), userId);
 
-        // 3. 内容安全（文本；图片已在上传时通过 mediaCheckAsync 异步检测）
+        // ② 内容安全（文本；图片已在上传时通过 mediaCheckAsync 异步检测）——放在事务之外
         contentSecurityService.checkText(req.getContent(), "submission", userId);
 
-        // 4. 覆盖提交：复用最新一条有效提交，否则新建
-        TaskSubmission latest = submissionMapper.selectLatestByClaimId(claimId);
-        String fileIdsJson = serializeFileIds(req.getFileIds());
-        if (latest != null) {
-            // 覆盖：更新内容与 submit_time
-            TaskSubmission up = new TaskSubmission();
-            up.setId(latest.getId());
-            up.setContent(req.getContent());
-            up.setFileIds(fileIdsJson);
-            up.setSubmitTime(LocalDateTime.now());
-            submissionMapper.updateById(up);
-        } else {
-            TaskSubmission s = new TaskSubmission();
-            s.setClaimId(claimId);
-            s.setContent(req.getContent());
-            s.setFileIds(fileIdsJson);
-            s.setSubmitTime(LocalDateTime.now());
-            submissionMapper.insert(s);
-        }
-
-        // 5. 接取状态流转：CLAIMED → SUBMITTED（CAS 防竞态）；SUBMITTED 覆盖时跳过
-        if (!isCover) {
-            int updated = taskClaimMapper.casStatus(claimId, ClaimStatus.CLAIMED.name(), ClaimStatus.SUBMITTED.name());
-            if (updated == 0) {
-                throw new BusinessException(ResultCode.CLAIM_NOT_SUBMITTABLE, "接取状态已变化，请刷新");
-            }
-        }
-
-        // 6. 时间戳：仅首次提交开审核窗口；覆盖提交不重置（防提交者反复覆盖把审核截止一直后推）
-        if (!isCover) {
-            TaskClaim up = new TaskClaim();
-            up.setId(claimId);
-            up.setSubmittedAt(LocalDateTime.now());
-            up.setReviewDeadline(LocalDateTime.now().plusHours(REVIEW_TIMEOUT_HOURS));
-            taskClaimMapper.updateById(up);
-        }
-
-        // 7. 审计 + 通知发布者（覆盖提交不重复通知，仅首次提交通知）
-        claimService.writeClaimLog(claimId,
-                isCover ? ClaimStatus.SUBMITTED.name() : ClaimStatus.CLAIMED.name(),
-                ClaimStatus.SUBMITTED.name(), userId,
-                isCover ? "覆盖更新凭证" : "提交完成凭证");
-        // 审计与通知属旁路操作：移到事务提交后执行
-        AfterCommit.run(() -> {
-            auditService.record(userId, "SUBMIT", "claim", claimId,
-                    isCover ? "覆盖提交凭证" : "提交凭证", httpReq);
-            if (!isCover) {
-                notificationService.notify(task.getPublisherId(),
-                        com.treatbord.module.notify.entity.Notification.TYPE_SUBMITTED,
-                        "收到完成凭证",
-                        "用户提交了任务《" + task.getTitle() + "》的完成凭证，请及时审核",
-                        task.getId());
-            }
-        });
+        // ③ 事务内写入（独立 Bean 调用 → 代理生效）
+        submissionTxService.persistSubmission(claimId, userId, req, httpReq);
     }
 
     /**
@@ -188,17 +131,6 @@ public class SubmissionService {
             if (Integer.valueOf(FileRecord.SEC_CHECK_REJECT).equals(f.getSecStatus())) {
                 throw new BusinessException(ResultCode.FILE_CONTENT_ILLEGAL);
             }
-        }
-    }
-
-    private String serializeFileIds(java.util.List<Long> fileIds) {
-        if (fileIds == null || fileIds.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(fileIds);
-        } catch (Exception e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "fileIds 格式错误");
         }
     }
 

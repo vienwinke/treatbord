@@ -29,6 +29,7 @@ public abstract class AbstractIntegrationTest {
     @Autowired protected UserMapper userMapper;
     @Autowired protected TaskMapper taskMapper;
     @Autowired protected TaskClaimMapper taskClaimMapper;
+    @Autowired protected com.treatbord.module.submission.mapper.TaskSubmissionMapper submissionMapper;
     @Autowired protected JdbcTemplate jdbcTemplate;
 
     private final List<Long> createdUserIds = new ArrayList<>();

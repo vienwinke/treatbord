@@ -476,3 +476,61 @@ SELECT ... FROM task_claim WHERE deleted=0 AND (status = ? AND submitted_at < ?)
 - **单轮上限**：200 批 × 500 = 10 万行；超出部分留到下一分钟继续（避免单次调度长时间占用调度线程）
 - **日志**：逐条改 debug，生产 `com.treatbord: info` 下只留汇总，避免海量日志
 - 本次数据全部在 `treatbord_test`，验证后已清理（残留 0 行）
+---
+
+# 📅 2026-09-27 · 升级批次 B3：长事务治理（内容安全检测移出事务）
+
+## 一、问题
+
+`SubmissionService.submit()` 原本是一个大 `@Transactional` 方法，里面包含：
+
+```
+归属校验 → 状态校验 → 任务状态校验 → 文件校验
+→ 【内容安全检测】← 真实环境是 HTTP 调用（msgSecCheck），耗时 100~500ms
+→ 写 submission → CAS 流转 → 审核窗口 → 状态留痕
+```
+
+事务在**等待外部 HTTP 响应期间**一直占用数据库连接与行锁（Hikari 池仅 10 个连接），并发提交时会放大成"连接被占满"。
+
+## 二、改动
+
+| 文件 | 改动 |
+|---|---|
+| `submission/service/SubmissionTxService.java`（新增，150 行） | 承载**事务内写入**：权威校验 → 覆盖/新建 submission → CAS 流转 → 审核窗口 → 状态留痕 → `AfterCommit` 提交后审计与通知 |
+| `submission/service/SubmissionService.java` | `submit()` 去掉 `@Transactional`，改为**非事务编排**：① 事务外预校验 ② 内容安全检测（事务外）③ 调 `SubmissionTxService.persistSubmission()` |
+| `src/test/.../SubmissionTransactionBoundaryTest.java`（新增） | 断言**内容安全检测时不在事务中**，且写入在事务内完成 |
+
+**为什么"事务外预校验 + 事务内再校验"两遍**：
+- 事务外预校验 → **快速失败**，避免为明显无效的请求去调外部内容安全接口（省时省钱）
+- 事务内重读再校验 → 关闭"预校验之后状态被并发修改"的窗口；状态流转仍有 CAS 兜底
+
+## 三、验证
+
+```
+mvn -s settings-mirror.xml test
+→ Tests run: 66, Failures: 0, Errors: 0, Skipped: 0
+→ BUILD SUCCESS
+```
+
+新增断言（`SubmissionTransactionBoundaryTest`）：
+
+```java
+doAnswer(inv -> {
+    checkRanInsideTransaction.set(TransactionSynchronizationManager.isActualTransactionActive());
+    return null;
+}).when(contentSecurityService).checkText(any(), any(), any());
+
+submissionService.submit(claimId, claimerId, req, null);
+
+assertFalse(checkRanInsideTransaction.get(), "内容安全检测必须在事务之外执行，否则就是长事务");
+assertEquals(ClaimStatus.SUBMITTED.name(), taskClaimMapper.selectById(claimId).getStatus());
+assertNotNull(submissionMapper.selectLatestByClaimId(claimId));
+```
+
+**要点**：这个断言直接测量"外部调用发生时的线程事务状态"，比看日志更硬——**验证的是设计目标本身**，而不是间接现象。
+
+## 四、取舍
+
+- **多了一个 Bean**：`SubmissionService`（编排）与 `SubmissionTxService`（事务）职责分离，符合"事务边界只包住数据库操作"的原则
+- **多一次校验查询**：事务内重读 claim/task，代价可忽略（两条主键查询），换来窗口关闭
+- `@Transactional` 放在**独立 Bean** 上，避免"同类内部调用绕过代理"的经典失效
