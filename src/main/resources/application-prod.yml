@@ -47,7 +47,7 @@ treatbord:
     sign-secret: ${STORAGE_SIGN_SECRET:}   # 空默认 -> StartupValidator 校验
     signed-url:
       required: true                 # 生产强制签名，杜绝裸读
-      ttl-seconds: 300
+      ttl-seconds: 1800              # 30 分钟：平衡体验与泄露风险（换密钥可全局失效）
     oss:
       endpoint: ${OSS_ENDPOINT:}
       bucket: ${OSS_BUCKET:}

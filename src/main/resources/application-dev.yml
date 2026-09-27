@@ -45,7 +45,7 @@ treatbord:
     sign-secret: ${STORAGE_SIGN_SECRET:dev-sign-secret-change-me}
     signed-url:
       required: ${STORAGE_SIGNED_URL_REQUIRED:false}   # 开发不强制，便于小程序联调
-      ttl-seconds: 300
+      ttl-seconds: 1800            # 30 分钟：覆盖浏览/审核停留时长
   wx:
     # 本地联调：false = 用测试 openid 映射，不调用微信
     enabled: ${WX_LOGIN_ENABLED:false}

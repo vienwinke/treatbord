@@ -28,7 +28,8 @@ import java.util.Base64;
  * <ul>
  *   <li>treatbord.storage.sign-secret：签名密钥（生产必须环境变量注入，StartupValidator 校验）</li>
  *   <li>treatbord.storage.signed-url.required：是否强制校验（dev 默认 false 便于联调，prod 必须 true）</li>
- *   <li>treatbord.storage.signed-url.ttl-seconds：有效期，默认 300s</li>
+ *   <li>treatbord.storage.signed-url.ttl-seconds：有效期，默认 1800s（30 分钟）
+ *       —— 覆盖用户浏览/审核的停留时长；泄露风险由"短于会话有效期 + 可换密钥全局失效"控制</li>
  * </ul>
  *
  * <p>注意：签名**不是加密**——不隐藏文件内容，只证明"该 URL 由服务端签发、未过期、未被篡改"。
@@ -48,7 +49,7 @@ public class FileUrlSigner {
     }
 
     public long ttlSeconds() {
-        return Long.parseLong(env.getProperty("treatbord.storage.signed-url.ttl-seconds", "300"));
+        return Long.parseLong(env.getProperty("treatbord.storage.signed-url.ttl-seconds", "1800"));
     }
 
     /** 生成签名 URL；base 优先按"当前请求的 Host"推导，解决 dev 下 127.0.0.1 写死的问题 */
