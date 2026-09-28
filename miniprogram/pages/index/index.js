@@ -85,7 +85,9 @@ Page({
         tagClass: taskTag(t.status),
         rewardText: formatMoney(t.reward),
         claimDeadlineText: shortDate(t.claimDeadline),
-        isFull: t.quota > 0 && t.claimedCount >= t.quota
+        isFull: t.quota > 0 && t.claimedCount >= t.quota,
+        // 名额进度（0~100），用于进度条展示
+        progressPercent: t.quota > 0 ? Math.min(100, Math.round((t.claimedCount || 0) * 100 / t.quota)) : 0
       }))
       const total = res.total || 0
       this.setData({
@@ -118,6 +120,12 @@ Page({
   },
 
   onSearch() {
+    this.refresh()
+  },
+
+  /** 清空搜索词并重新加载 */
+  onClearKeyword() {
+    this.setData({ keyword: '' })
     this.refresh()
   },
 
