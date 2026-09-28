@@ -89,8 +89,12 @@ jobs:
             nginx:1.27-alpine nginx -t
 
       # 3) 真实构建后端镜像（验证 Dockerfile 可用）
+      #    runner 在海外 → 用 Maven Central；国内生产构建保留阿里云默认值
       - name: Build backend image
-        run: docker build -f deploy/Dockerfile -t treatbord/app:ci .
+        run: |
+          docker build \
+            --build-arg MAVEN_MIRROR_URL=https://repo.maven.apache.org/maven2 \
+            -f deploy/Dockerfile -t treatbord/app:ci .
 
       - name: Inspect image
         run: |
