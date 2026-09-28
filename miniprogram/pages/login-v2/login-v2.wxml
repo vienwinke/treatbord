@@ -1,6 +1,6 @@
 <view class="page">
 
-  <!-- ══ Header（约 52px，iOS 导航栏） ══ -->
+  <!-- ══ 自定义导航栏（二级页：返回 + 标题） ══ -->
   <view class="header-wrap" style="padding-top: {{statusBarHeight}}px;">
     <view class="header">
       <view class="nav-back" bindtap="goBack" hover-class="back-hover">
@@ -11,90 +11,84 @@
     </view>
   </view>
 
-  <!-- ══ Brand（垂直居中） ══ -->
-  <view class="hero">
-    <view class="logo">
-      <view class="logo-ring"></view>
-      <view class="logo-dot"></view>
-    </view>
-    <view class="app-name">Treatbord</view>
-    <view class="app-sub">任务服务中心</view>
+  <!-- ══ 上下文提示：说明"为什么被拦下来"（由 redirect 推导，纯前端） ══ -->
+  <view class="ctx" wx:if="{{contextHint}}">
+    <view class="ctx-ic">→</view>
+    <text class="ctx-text">{{contextHint}}</text>
   </view>
 
-  <!-- ══ Feature Row（三列等宽） ══ -->
-  <view class="features">
-    <view class="feature">
-      <view class="feature-icon">📤</view>
-      <text class="feature-name">发布任务</text>
-      <text class="feature-desc">悬赏找人</text>
-    </view>
-    <view class="feature">
-      <view class="feature-icon">🤝</view>
-      <text class="feature-name">接取任务</text>
-      <text class="feature-desc">随时接单</text>
-    </view>
-    <view class="feature">
-      <view class="feature-icon">🛡️</view>
-      <text class="feature-name">信用保障</text>
-      <text class="feature-desc">全程护航</text>
-    </view>
+  <!-- ══ 内容区（在剩余空间内垂直居中：margin:auto 稳健写法） ══ -->
+  <view class="content">
+  <view class="content-inner">
+
+  <!-- ══ 品牌（紧凑） ══ -->
+  <view class="brand">
+    <view class="logo"><view class="logo-ring"></view></view>
+    <view class="brand-name">Treatbord</view>
+    <view class="brand-sub">任务服务中心</view>
   </view>
 
-  <!-- ══ Login CTA（微信一键登录） ══ -->
+  <!-- ══ 微信一键登录 ══ -->
   <block wx:if="{{mode === 'wx'}}">
-    <view class="cta-row">
-      <button class="login-btn" bindtap="doLogin" loading="{{loading}}">
-        <view class="login-inner">
+    <view class="main">
+      <button class="tb-btn tb-btn-primary" bindtap="doLogin" loading="{{loading}}" hover-class="btn-hover">
+        <view class="btn-inner">
           <view class="wx-mark">
             <view class="wx-bubble wx-bubble-a"></view>
             <view class="wx-bubble wx-bubble-b"></view>
           </view>
-          <text class="login-text">{{loading ? '登录中...' : '微信一键登录'}}</text>
+          <text>{{loading ? '登录中...' : '微信一键登录'}}</text>
         </view>
       </button>
-    </view>
+      <view class="hint">首次微信授权将自动创建账号，无需注册</view>
 
-    <!-- ══ Login Hint ══ -->
-    <view class="login-hint">首次微信授权登录将自动创建 Treatbord 账号</view>
-
-    <!-- ══ 其他登录方式 ══ -->
-    <view class="other-divider"><text>其他登录方式</text></view>
-    <view class="other-btn" bindtap="switchAccountLogin">
-      <text class="other-ic">🔑</text>
-      <text class="other-text">账密登录</text>
+      <view class="tb-divider"><text>其他登录方式</text></view>
+      <view class="tb-btn tb-btn-ghost" bindtap="switchAccountLogin" hover-class="btn-hover">账密登录</view>
     </view>
   </block>
 
-  <!-- ══ 账密登录 ══ -->
+  <!-- ══ 账密登录（同页切换） ══ -->
   <block wx:if="{{mode === 'account'}}">
-    <view class="acc-back" bindtap="backWx">‹ 返回微信登录</view>
-    <view class="acc-item">
-      <view class="acc-label">账号</view>
-      <input class="acc-input" placeholder="登录账号（微信登录后可在个人中心设置）"
-             placeholder-class="acc-ph" value="{{account}}" bindinput="onAccountInput" />
+    <view class="acc-back" bindtap="backWx" hover-class="back-hover">‹ 返回微信登录</view>
+
+    <view class="tb-field">
+      <view class="tb-label">账号</view>
+      <input class="tb-input" placeholder="请输入账号（微信登录后可在「我的」中设置）"
+             placeholder-class="tb-ph" value="{{account}}" bindinput="onAccountInput" />
     </view>
-    <view class="acc-item">
-      <view class="acc-label">密码</view>
-      <input class="acc-input" password placeholder="请输入密码"
-             placeholder-class="acc-ph" value="{{password}}" bindinput="onPasswordInput" />
+    <view class="tb-field">
+      <view class="tb-label">密码</view>
+      <view class="tb-input-row">
+        <input class="tb-input" password="{{!showPassword}}" placeholder="请输入密码"
+               placeholder-class="tb-ph" value="{{password}}" bindinput="onPasswordInput" />
+        <view class="tb-eye" catchtap="togglePassword" hover-class="back-hover">{{showPassword ? '隐藏' : '显示'}}</view>
+      </view>
     </view>
-    <button class="acc-login" bindtap="doAccountLogin" loading="{{loading}}">登录</button>
-    <view class="acc-tip">没有账密？先微信一键登录，之后在「我的-常用功能-设置账号密码」创建账密。</view>
+
+    <view class="tb-btn tb-btn-primary acc-submit" bindtap="doAccountLogin" hover-class="btn-hover">
+      <text>{{loading ? '登录中...' : '登录'}}</text>
+    </view>
+
+    <view class="acc-tip">
+      <text>没有账密？先</text>
+      <text class="acc-tip-link" catchtap="backWx">微信一键登录</text>
+      <text>，之后在「我的 → 常用功能 → 设置账号密码」创建。</text>
+    </view>
   </block>
 
-  <!-- ══ Agreement ══ -->
-  <view class="agreement">
-    <view class="checkbox {{agreed ? 'checkbox-on' : ''}}" bindtap="toggleAgree">
-      <view class="check-mark {{agreed ? 'show' : ''}}"></view>
-    </view>
-    <view class="agree-text">
-      <text>我已阅读并同意</text>
-      <text class="agree-link" catchtap="showAgreement">《用户协议》</text>
-      <text>与</text>
-      <text class="agree-link" catchtap="showPrivacy">《隐私政策》</text>
-    </view>
   </view>
-
-  <!-- ══ Version ══ -->
-  <view class="version">v0.2.0 · Treatbord</view>
+  </view>
+  <!-- ══ 协议与隐私（固定在底部） ══ -->
+  <view class="foot">
+    <view class="foot-row">
+      <view class="checkbox {{agreed ? 'checkbox-on' : ''}}" bindtap="toggleAgree">
+        <view class="check-mark {{agreed ? 'show' : ''}}"></view>
+      </view>
+      <text class="foot-text">我已阅读并同意</text>
+      <text class="foot-link" catchtap="showAgreement">《用户协议》</text>
+      <text class="foot-text">与</text>
+      <text class="foot-link" catchtap="showPrivacy">《隐私政策》</text>
+    </view>
+    <view class="version">v0.2.0 · Treatbord</view>
+  </view>
 </view>

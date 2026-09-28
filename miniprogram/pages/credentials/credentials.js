@@ -4,6 +4,7 @@ Page({
   data: {
     username: '',
     password: '',
+    showPassword: false,
     saving: false
   },
 
@@ -16,6 +17,8 @@ Page({
 
   onUsername(e) { this.setData({ username: e.detail.value }) },
   onPassword(e) { this.setData({ password: e.detail.value }) },
+  /** 切换密码明文/密文显示 */
+  togglePassword() { this.setData({ showPassword: !this.data.showPassword }) },
 
   save() {
     const { username, password } = this.data

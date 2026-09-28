@@ -2,6 +2,31 @@ const api = require('../../utils/api')
 
 // 协议/隐私政策已移至独立合规页面：pages/agreement、pages/privacy
 
+/**
+ * 上下文提示：登录页是二级页（被其它页面 redirectTo 拦下来），
+ * 用 redirect 路径推导"登录后继续做什么"文案。纯前端映射，不改任何接口。
+ */
+const HINT_RULES = [
+  { re: /^\/pages\/detail\//, hint: '登录后继续：接取该任务' },
+  { re: /^\/pages\/my-claims\//, hint: '登录后查看我的接取' },
+  { re: /^\/pages\/order-list\//, hint: '登录后查看接取列表' },
+  { re: /^\/pages\/submit\//, hint: '登录后提交完成凭证' },
+  { re: /^\/pages\/notifications\//, hint: '登录后查看通知' },
+  { re: /^\/pages\/peer-review\//, hint: '登录后提交互评' },
+  { re: /^\/pages\/publish\//, hint: '登录后发布任务' },
+  { re: /^\/pages\/admin\//, hint: '登录后进入管理台' }
+]
+
+function hintFor(redirect) {
+  if (!redirect) return '登录后开始接取任务'
+  let path = redirect
+  try { path = decodeURIComponent(redirect) } catch (e) { /* 保留原值 */ }
+  for (const rule of HINT_RULES) {
+    if (rule.re.test(path)) return rule.hint
+  }
+  return '登录后继续你的操作'
+}
+
 Page({
   data: {
     loading: false,
@@ -9,14 +34,19 @@ Page({
     statusBarHeight: 44,   // 自定义导航栏状态栏高度（px）
     mode: 'wx',            // wx=微信一键登录 | account=账密登录
     account: '',
-    password: ''
+    password: '',
+    showPassword: false,   // 账密模式下是否明文显示密码
+    contextHint: ''        // 由 redirect 推导（见 hintFor）
   },
 
   onLoad(options) {
     this.redirect = options.redirect || ''
     // 自定义导航栏：读取状态栏高度
     const win = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {}
-    this.setData({ statusBarHeight: win.statusBarHeight || 44 })
+    this.setData({
+      statusBarHeight: win.statusBarHeight || 44,
+      contextHint: hintFor(this.redirect)
+    })
     // 已有登录态则直接进入（带回跳时回跳）
     if (wx.getStorageSync('token')) {
       this.afterLogin()
@@ -85,6 +115,8 @@ Page({
   backWx() { this.setData({ mode: 'wx', account: '', password: '' }) },
   onAccountInput(e) { this.setData({ account: e.detail.value }) },
   onPasswordInput(e) { this.setData({ password: e.detail.value }) },
+  /** 切换密码明文/密文显示 */
+  togglePassword() { this.setData({ showPassword: !this.data.showPassword }) },
   async doAccountLogin() {
     if (this.data.loading) return
     const { account, password } = this.data
