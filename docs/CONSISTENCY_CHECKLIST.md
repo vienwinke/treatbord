@@ -11,7 +11,7 @@
 | 后端代码行数 | 6.8k | 6895 | `find … -exec cat {} + \| wc -l` | ✅ |
 | REST 接口数 | 34 | 34 | 统计 `@GetMapping/@PostMapping/@PutMapping/@DeleteMapping` | ✅ |
 | Controller 数量 | — | 12 | `find src/main/java -name '*Controller.java'` | — |
-| 小程序页面数 | 15 | 15 | `app.json` 的 `pages` 长度 | ✅ |
+| 小程序页面数 | 16 | 16 | `app.json` 的 `pages` 长度 | ✅ |
 | 业务表数量 | 14 | 14（不含 `flyway_schema_history`） | `information_schema.tables` | ✅ |
 | 设计文档数 | 7 | 7 | `ls docs \| wc -l` | ✅ |
 | 自动化测试用例 | 93 | 93（20 个测试类） | `mvn test` 输出 / `find src/test -name '*Test.java'` | ✅ |
