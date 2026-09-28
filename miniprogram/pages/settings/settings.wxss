@@ -1,0 +1,55 @@
+/* 设置页（设计 token 见 app.wxss） */
+.page {
+  min-height: 100vh;
+  background: var(--tb-bg, #F8FBFF);
+  padding: 16rpx 0 60rpx;
+}
+
+.group {
+  background: var(--tb-surface, #fff);
+  border-radius: 28rpx;
+  margin: 16rpx 40rpx 0;
+  padding: 6rpx 32rpx 10rpx;
+  box-shadow: 0 16rpx 44rpx rgba(23, 32, 51, 0.05);
+}
+.group-title {
+  font-size: 24rpx; color: var(--tb-text-muted, #9AA6BA);
+  padding: 24rpx 0 8rpx;
+}
+
+.item {
+  display: flex; align-items: center;
+  padding: 30rpx 0;
+  border-top: 2rpx solid #F4F7FB;
+}
+.item:first-of-type { border-top: none; }
+.item-hover { opacity: 0.7; }
+.item-name { flex: 1; font-size: 29rpx; color: var(--tb-text, #172033); }
+.item-val {
+  font-size: 27rpx; color: var(--tb-text-muted, #9AA6BA); margin-right: 16rpx;
+  max-width: 300rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.item-arrow { color: #C3CAD6; font-size: 32rpx; }
+.item-static .item-val { margin-right: 0; }
+
+.logout {
+  margin: 44rpx 40rpx 0; height: 100rpx;
+  background: var(--tb-surface, #fff); border-radius: 32rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 31rpx; font-weight: 600; color: var(--tb-danger, #E74C3C);
+  box-shadow: 0 16rpx 44rpx rgba(23, 32, 51, 0.05);
+}
+.switch-acc {
+  margin: 24rpx 40rpx 0; text-align: center;
+  font-size: 25rpx; color: var(--tb-text-muted, #9AA6BA);
+}
+.danger {
+  margin: 24rpx 40rpx 0; height: 100rpx;
+  border-radius: 32rpx; display: flex; align-items: center; justify-content: center;
+  font-size: 31rpx; color: var(--tb-danger, #E74C3C);
+  border: 3rpx solid #FADBD8; background: #FFF7F6;
+}
+.danger-tip {
+  margin: 20rpx 40rpx 0; text-align: center;
+  font-size: 22rpx; color: #B4BDCC; line-height: 1.7;
+}

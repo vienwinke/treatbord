@@ -1,0 +1,46 @@
+<view class="page">
+
+  <!-- ══ 账号 ══ -->
+  <view class="group">
+    <view class="group-title">账号</view>
+    <view class="item" bindtap="editNickname" hover-class="item-hover">
+      <view class="item-name">昵称</view>
+      <text class="item-val">{{isLogin ? (nickname || '未设置') : '未登录'}}</text>
+      <text class="item-arrow">›</text>
+    </view>
+    <view class="item" bindtap="goCredentials" hover-class="item-hover">
+      <view class="item-name">账号密码</view>
+      <text class="item-val">{{hasCredentials ? '已设置' : '未设置'}}</text>
+      <text class="item-arrow">›</text>
+    </view>
+    <view wx:if="{{!isLogin}}" class="item" bindtap="goLogin" hover-class="item-hover">
+      <view class="item-name">去登录</view>
+      <text class="item-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- ══ 关于 ══ -->
+  <view class="group">
+    <view class="group-title">关于</view>
+    <view class="item" bindtap="goAgreement" hover-class="item-hover">
+      <view class="item-name">用户协议</view>
+      <text class="item-arrow">›</text>
+    </view>
+    <view class="item" bindtap="goPrivacy" hover-class="item-hover">
+      <view class="item-name">隐私政策</view>
+      <text class="item-arrow">›</text>
+    </view>
+    <view class="item item-static">
+      <view class="item-name">版本</view>
+      <text class="item-val">{{version}}</text>
+    </view>
+  </view>
+
+  <!-- ══ 账号操作（登录态） ══ -->
+  <block wx:if="{{isLogin}}">
+    <view class="logout" bindtap="doLogout" hover-class="item-hover">退出登录</view>
+    <view class="switch-acc" bindtap="switchAccount">切换账号</view>
+    <view class="danger" bindtap="doDelete" hover-class="item-hover">注销账号</view>
+    <view class="danger-tip">注销后账号数据将被匿名化处理，且不可恢复</view>
+  </block>
+</view>

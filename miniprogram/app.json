@@ -4,6 +4,7 @@
     "pages/detail/detail",
     "pages/publish/publish",
     "pages/my-claims/my-claims",
+    "pages/settings/settings",
     "pages/order-list/order-list",
     "pages/credentials/credentials",
     "pages/submit/submit",

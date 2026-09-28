@@ -202,6 +202,12 @@ Page({
     }
     wx.navigateTo({ url: '/pages/admin/admin' })
   },
+  /** 设置（账号/关于/退出与注销 都在设置页） */
+  goSettings() {
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/settings/settings' })
+  },
+
   goHelp() {
     wx.showModal({
       title: '帮助与反馈',
@@ -210,46 +216,6 @@ Page({
       confirmText: '知道了'
     })
   },
-  /** 用户协议（合规页面） */
-  goAgreement() {
-    wx.navigateTo({ url: '/pages/agreement/agreement' })
-  },
-  /** 隐私政策（合规页面） */
-  goPrivacy() {
-    wx.navigateTo({ url: '/pages/privacy/privacy' })
-  },
-  /** 修改昵称：弹窗输入 → PUT /api/users/me → 刷新本页与本地缓存 */
-  editNickname() {
-    wx.showModal({
-      title: '修改昵称',
-      editable: true,
-      placeholderText: '请输入新昵称（最长 30 字）',
-      success: res => {
-        if (!res.confirm) return
-        const nickname = (res.content || '').trim()
-        if (!nickname) return wx.showToast({ title: '昵称不能为空', icon: 'none' })
-        if (nickname.length > 30) return wx.showToast({ title: '昵称最长 30 个字符', icon: 'none' })
-        api.updateProfile({ nickname })
-          .then(user => {
-            const name = user.nickname
-            this.setData({ nickname: name, nickname0: (name || '?')[0] })
-            // 同步本地缓存，避免其它页面仍显示旧昵称
-            const info = wx.getStorageSync('userInfo') || {}
-            const merged = Object.assign({}, info, { nickname: name })
-            wx.setStorageSync('userInfo', merged)
-            getApp().globalData.userInfo = merged
-            wx.showToast({ title: '昵称已更新', icon: 'success' })
-          })
-          .catch(err => wx.showToast({ title: err.message, icon: 'none' }))
-      }
-    })
-  },
-
-  goCredentials() {
-    if (!this.requireLogin()) return
-    wx.navigateTo({ url: '/pages/credentials/credentials' })
-  },
-
   /** 点击个人信息区：未登录 → 跳登录页；已登录 → 弹操作菜单 */
   onTapProfile() {
     if (!this.data.isLogin) {
@@ -258,56 +224,8 @@ Page({
       })
       return
     }
-    wx.showActionSheet({
-      itemList: ['切换演示账号', '退出登录', '注销账号'],
-      itemColor: '#4A90D9',
-      success: res => {
-        if (res.tapIndex === 0) this.switchAccount()
-        else if (res.tapIndex === 1) this.doLogout()
-        else if (res.tapIndex === 2) this.doDelete()
-      }
-    })
-  },
-
-  /** 切换账号 */
-  switchAccount() {
-    getApp().logout()
-    this.onShow()
-    wx.redirectTo({
-      url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
-    })
-  },
-
-  /** 退出登录 */
-  doLogout() {
-    wx.showModal({
-      title: '退出登录',
-      content: '确定退出当前账号吗？',
-      success: res => {
-        if (!res.confirm) return
-        api.logout().catch(() => {}).finally(() => {
-          getApp().logout()
-          this.onShow()
-          wx.showToast({ title: '已退出', icon: 'success' })
-        })
-      }
-    })
-  },
-
-  /** 注销账号（合规强制：匿名化 + token 失效） */
-  doDelete() {
-    wx.showModal({
-      title: '注销账号',
-      content: '注销后个人数据将被匿名化处理，确定注销吗？',
-      confirmColor: '#e74c3c',
-      success: res => {
-        if (!res.confirm) return
-        api.deleteAccount().then(() => {
-          getApp().logout()
-          wx.redirectTo({ url: '/pages/login-v2/login-v2' })
-        }).catch(err => wx.showToast({ title: err.message, icon: 'none' }))
-      }
-    })
+    // 已登录：直接进「设置」（账号/协议/退出/注销 都在设置页）
+    wx.navigateTo({ url: '/pages/settings/settings' })
   },
 
   goTask(e) {
