@@ -3,9 +3,12 @@ package com.treatbord.module.user.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
+import com.treatbord.module.audit.service.AuditService;
+import com.treatbord.module.security.service.ContentSecurityService;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.mapper.UserMapper;
 import com.treatbord.security.PasswordEncoder;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +28,8 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final ContentSecurityService contentSecurityService;
+    private final AuditService auditService;
 
     /** 按 openid 查用户（未删除） */
     public User findByOpenid(String openid) {
@@ -102,6 +107,35 @@ public class UserService {
             me.setPasswordHash(passwordEncoder.encode(password));
         }
         userMapper.updateById(me);
+    }
+
+    /**
+     * 修改昵称（登录态）。
+     *
+     * <p>校验链：去首尾空白 → 非空 → ≤30 字符 → 内容安全检测（昵称是公开可见内容）→ 更新 → 审计。
+     * 昵称为空或与当前一致时不写库（后者直接返回，避免无意义的 UPDATE 与审计噪声）。
+     */
+    public User updateNickname(Long userId, String nickname, HttpServletRequest httpReq) {
+        String name = nickname == null ? "" : nickname.trim();
+        if (name.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "昵称不能为空");
+        }
+        if (name.length() > 30) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "昵称最长 30 个字符");
+        }
+        User me = getById(userId);
+        if (name.equals(me.getNickname())) {
+            return me;
+        }
+        contentSecurityService.checkText(name, "nickname", userId);
+
+        User up = new User();
+        up.setId(userId);
+        up.setNickname(name);
+        userMapper.updateById(up);
+
+        auditService.record(userId, "UPDATE_NICKNAME", "user", userId, "修改昵称: " + name, httpReq);
+        return getById(userId);
     }
 
     /** 账密登录校验：返回匹配用户；账号不存在 / 未设密码 / 密码错误分别抛错。 */

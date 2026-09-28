@@ -7,9 +7,9 @@
 
 | 项目 | 文档声明 | 实测 | 核对方式 | 一致 |
 |---|---|---|---|---|
-| 后端 Java 文件 | 115 | 115 | `find src/main/java -name '*.java' \| wc -l` | ✅ |
+| 后端 Java 文件 | 116 | 116 | `find src/main/java -name '*.java' \| wc -l` | ✅ |
 | 后端代码行数 | 6.8k | 6895 | `find … -exec cat {} + \| wc -l` | ✅ |
-| REST 接口数 | 33 | 33 | 统计 `@GetMapping/@PostMapping/@PutMapping/@DeleteMapping` | ✅ |
+| REST 接口数 | 34 | 34 | 统计 `@GetMapping/@PostMapping/@PutMapping/@DeleteMapping` | ✅ |
 | Controller 数量 | — | 12 | `find src/main/java -name '*Controller.java'` | — |
 | 小程序页面数 | 15 | 15 | `app.json` 的 `pages` 长度 | ✅ |
 | 业务表数量 | 14 | 14（不含 `flyway_schema_history`） | `information_schema.tables` | ✅ |

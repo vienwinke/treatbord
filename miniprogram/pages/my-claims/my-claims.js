@@ -218,6 +218,33 @@ Page({
   goPrivacy() {
     wx.navigateTo({ url: '/pages/privacy/privacy' })
   },
+  /** 修改昵称：弹窗输入 → PUT /api/users/me → 刷新本页与本地缓存 */
+  editNickname() {
+    wx.showModal({
+      title: '修改昵称',
+      editable: true,
+      placeholderText: '请输入新昵称（最长 30 字）',
+      success: res => {
+        if (!res.confirm) return
+        const nickname = (res.content || '').trim()
+        if (!nickname) return wx.showToast({ title: '昵称不能为空', icon: 'none' })
+        if (nickname.length > 30) return wx.showToast({ title: '昵称最长 30 个字符', icon: 'none' })
+        api.updateProfile({ nickname })
+          .then(user => {
+            const name = user.nickname
+            this.setData({ nickname: name, nickname0: (name || '?')[0] })
+            // 同步本地缓存，避免其它页面仍显示旧昵称
+            const info = wx.getStorageSync('userInfo') || {}
+            const merged = Object.assign({}, info, { nickname: name })
+            wx.setStorageSync('userInfo', merged)
+            getApp().globalData.userInfo = merged
+            wx.showToast({ title: '昵称已更新', icon: 'success' })
+          })
+          .catch(err => wx.showToast({ title: err.message, icon: 'none' }))
+      }
+    })
+  },
+
   goCredentials() {
     if (!this.requireLogin()) return
     wx.navigateTo({ url: '/pages/credentials/credentials' })

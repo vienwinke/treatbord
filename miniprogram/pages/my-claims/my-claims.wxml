@@ -85,6 +85,11 @@
       <text class="func-name">隐私政策</text>
       <text class="func-arrow">›</text>
     </view>
+    <view class="func-item" bindtap="editNickname">
+      <view class="func-ic">✏️</view>
+      <text class="func-name">修改昵称</text>
+      <text class="func-arrow">›</text>
+    </view>
     <view class="func-item" bindtap="goCredentials">
       <view class="func-ic">🔐</view>
       <text class="func-name">设置账号密码</text>

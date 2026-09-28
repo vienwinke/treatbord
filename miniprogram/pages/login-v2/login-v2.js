@@ -30,7 +30,7 @@ function hintFor(redirect) {
 Page({
   data: {
     loading: false,
-    agreed: true,          // 默认勾选协议，保持“一键登录”零摩擦（合规文案以上线版为准）
+    agreed: false,         // 合规：默认【不勾选】，由用户主动同意（PIPL 要求明示同意）
     statusBarHeight: 44,   // 自定义导航栏状态栏高度（px）
     mode: 'wx',            // wx=微信一键登录 | account=账密登录
     account: '',
@@ -83,8 +83,32 @@ Page({
     this.doLogin(e.currentTarget.dataset.code)
   },
 
-  /** 微信一键登录；code 缺省时用 mock 新用户（生产改为 wx.login 真实 code） */
-  async doLogin(code) {
+  /**
+   * 取登录 code（三档）：
+   *   1. 显式传入（演示账号入口）→ 直接用
+   *   2. 本地联调（globalData.useMockLogin=true）→ 用【固定】devMockCode
+   *      （同设备重复登录 = 同一个 openid = 同一个账号，不再造新用户）
+   *   3. 生产 → wx.login() 真实 code（同一微信用户 openid 固定）
+   */
+  async resolveLoginCode(explicit) {
+    if (typeof explicit === 'string' && explicit && explicit !== 'new') {
+      return explicit
+    }
+    const app = getApp()
+    if (app.globalData.useMockLogin) {
+      return app.globalData.devMockCode || 'dev-local-user'
+    }
+    const code = await new Promise(resolve => {
+      wx.login({ success: r => resolve(r.code || ''), fail: () => resolve('') })
+    })
+    if (!code) {
+      throw new Error('微信登录失败，请重试')
+    }
+    return code
+  },
+
+  /** 微信一键登录 */
+  async doLogin(explicitCode) {
     if (this.data.loading) return
     if (!this.data.agreed) {
       wx.showToast({ title: '请先阅读并同意《用户协议》与《隐私政策》', icon: 'none' })
@@ -94,8 +118,7 @@ Page({
     wx.showLoading({ title: '登录中...' })
 
     try {
-      // 演示账号：xiaomei / xiaoming / new（新用户）；一键登录走 mock 新用户
-      const loginCode = (typeof code !== 'string' || code === 'new') ? 'mp-' + Date.now() : code
+      const loginCode = await this.resolveLoginCode(explicitCode)
       const loginResult = await api.login(loginCode)
       getApp().setAuth(loginResult.token, loginResult.user)
       wx.showToast({ title: '登录成功', icon: 'success' })

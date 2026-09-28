@@ -465,6 +465,10 @@
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
 | GET | `/api/admin/audit-logs` | ADMIN（`@RequireAdmin`） | 审计日志查询，参数 `action`、`userId`、`page`、`pageSize`（默认 20），返回 `PageResult<AuditLogVO>` |
+| PUT | `/api/users/me` | 登录 | **修改昵称**；body `{"nickname":"..."}`（1~30 字符，首尾空白自动去除）；返回更新后的 `UserView`；写 `UPDATE_NICKNAME` 审计 |
+
+**修改昵称的校验链**：去空白 → 非空（400）→ ≤30 字符（400）→ 内容安全检测 → 更新 → 审计；
+昵称与当前一致时不写库（避免无意义 UPDATE 与审计噪声）。
 
 ### 文件访问：签名 URL 约定
 
