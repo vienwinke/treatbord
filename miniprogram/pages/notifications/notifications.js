@@ -19,7 +19,7 @@ Page({
 
   onShow() {
     if (!wx.getStorageSync('token')) {
-      wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+      wx.redirectTo({ url: '/pages/login/login' })
       return
     }
     this.load()

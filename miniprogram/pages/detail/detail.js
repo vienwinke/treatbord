@@ -58,7 +58,7 @@ Page({
       success: res => {
         if (res.confirm) {
           const back = '/pages/detail/detail?id=' + this.data.id
-          wx.redirectTo({ url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent(back) })
+          wx.redirectTo({ url: '/pages/login/login?redirect=' + encodeURIComponent(back) })
         }
       }
     })

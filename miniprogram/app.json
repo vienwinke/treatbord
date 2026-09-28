@@ -13,7 +13,7 @@
     "pages/report/report",
     "pages/peer-review/peer-review",
     "pages/admin/admin",
-    "pages/login-v2/login-v2",
+    "pages/login/login",
     "pages/agreement/agreement",
     "pages/privacy/privacy"
   ],

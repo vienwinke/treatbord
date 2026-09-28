@@ -40,7 +40,7 @@ Page({
   onShow() {
     const me = wx.getStorageSync('userInfo')
     if (!wx.getStorageSync('token')) {
-      wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+      wx.redirectTo({ url: '/pages/login/login' })
       return
     }
     if (!me || me.role !== 1) {

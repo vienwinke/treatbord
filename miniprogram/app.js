@@ -2,9 +2,15 @@ App({
   globalData: {
     token: null,
     userInfo: null,
-    // 后端地址（本地联调：Windows 侧连 WSL 直连 IP，绕过 localhost 转发失效问题）
-    // 注意：WSL 重启后 IP 可能变化，用 `hostname -I` 查询最新值再改
-    baseUrl: 'http://172.28.58.76:8080/api',
+    // 后端地址（开发环境按候选列表自动探测，见 probeBackend）
+    //   - 实测本机 WSL2 的 IPv4 回环转发失效，只有 IPv6 回环通 → localhost 默认解析到 ::1，可用
+    //   - WSL 重启后直连 IP 会变，故把它作为兜底候选（`hostname -I` 可查最新值）
+    // 生产：改成你的备案域名，例如 https://api.example.com/api
+    baseUrl: 'http://localhost:8080/api',
+    baseCandidates: [
+      'http://localhost:8080/api',
+      'http://172.28.58.76:8080/api'
+    ],
 
     // ⚠️ 登录模式开关
     //   true  = 本地联调：登录用【固定 mock code】，不调 wx.login（后端 WX_LOGIN_ENABLED=false 时 code 直映射 openid）
@@ -21,6 +27,33 @@ App({
     if (token) {
       this.globalData.token = token
     }
+    this.probeBackend()
+  },
+
+  /**
+   * 依次探测候选后端地址，选中第一个可用的（仅开发便利；全部失败则保持默认值）。
+   * 解决两个联调坑：Windows 侧 IPv4 回环不通、WSL 重启后直连 IP 变化。
+   */
+  probeBackend() {
+    const list = this.globalData.baseCandidates || []
+    const tryNext = i => {
+      if (i >= list.length) return
+      wx.request({
+        url: list[i] + '/tasks?page=1&pageSize=1',
+        method: 'GET',
+        timeout: 1500,
+        success: res => {
+          if (res.statusCode === 200) {
+            this.globalData.baseUrl = list[i]
+            console.log('[app] 后端地址已就绪:', list[i])
+          } else {
+            tryNext(i + 1)
+          }
+        },
+        fail: () => tryNext(i + 1)
+      })
+    }
+    tryNext(0)
   },
 
   /** 保存登录态 */

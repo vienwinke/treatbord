@@ -24,7 +24,7 @@
 
 用户、任务（task）、接取（claim）、提交凭证（submission）、文件（file）、通知（notification）、互评（review）、举报（report）、结算（settlement，预留）、审计日志（status_log / audit_log）。
 
-## 5. 数据表设计（10 张）
+## 5. 数据表设计（14 张）
 
 > 约定：所有表含 `id BIGINT 主键`、`create_time`、`update_time`、`deleted`（逻辑删除）。
 
@@ -66,7 +66,11 @@
 | 通知 | `GET /api/notifications`、`POST /api/notifications/{id}/read` |
 | 互评 | `POST /api/reviews` |
 | 举报 | `POST /api/reports` |
-| 管理 | `/api/admin/*`（内容处置、封禁、统计，独立鉴权 role=ADMIN） |
+| 管理 | `/api/admin/*`（内容处置、封禁、统计、审计日志查询，独立鉴权 role=ADMIN） |
+| 资料 | `PUT /api/users/me`（修改昵称，1-30 字符，含内容安全检测） |
+
+> **权威来源**：数据表 DDL 见 `src/main/resources/db/migration/` 与 `docs/DB_DESIGN.md`；
+> 接口完整规格（含错误码与业务规则）见 `docs/API_DESIGN.md`。本文件只保留"约定与取舍"。
 
 统一：响应体 `Result<T>`、统一异常处理、分页参数 `page/pageSize`（上限 20）。
 

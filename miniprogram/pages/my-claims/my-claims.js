@@ -220,7 +220,7 @@ Page({
   onTapProfile() {
     if (!this.data.isLogin) {
       wx.redirectTo({
-        url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
+        url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/my-claims/my-claims')
       })
       return
     }

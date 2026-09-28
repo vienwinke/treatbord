@@ -68,7 +68,7 @@ Page({
   uploadOne(path) {
     const token = wx.getStorageSync('token')
     if (!token) {
-      wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+      wx.redirectTo({ url: '/pages/login/login' })
       return
     }
     wx.showLoading({ title: '上传中...' })

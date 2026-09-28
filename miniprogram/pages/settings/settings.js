@@ -32,7 +32,7 @@ Page({
 
   goLogin() {
     wx.navigateTo({
-      url: '/pages/login-v2/login-v2?redirect=' + encodeURIComponent('/pages/settings/settings')
+      url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/settings/settings')
     })
   },
 
@@ -85,7 +85,7 @@ Page({
       success: res => {
         if (!res.confirm) return
         getApp().logout()
-        wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+        wx.redirectTo({ url: '/pages/login/login' })
       }
     })
   },
@@ -116,7 +116,7 @@ Page({
         if (!res.confirm) return
         api.deleteAccount().then(() => {
           getApp().logout()
-          wx.redirectTo({ url: '/pages/login-v2/login-v2' })
+          wx.redirectTo({ url: '/pages/login/login' })
         }).catch(err => wx.showToast({ title: err.message, icon: 'none' }))
       }
     })
