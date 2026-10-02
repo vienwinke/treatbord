@@ -62,8 +62,8 @@ echo "接口数:    $(grep -rhoE '@(Get|Post|Put|Delete|Patch)Mapping' src/main/
 echo "页面数:    $(python3 -c "import json;print(len(json.load(open('miniprogram/app.json'))['pages']))")"
 echo "迁移脚本:  $(ls src/main/resources/db/migration | wc -l)"
 mvn -s settings-mirror.xml test | grep -E 'Tests run: [0-9]+, Failures'
-# 过期表述自查（应无输出）
-# README 与活文档必须无输出（开发日志/学习记录等过程文档已移出仓库，不参与检查）
-grep -rn "V1~V4\|32 个接口\|16 个页面\|104 个 Java\|5.5k 行" \
-  README.md docs/API_DESIGN.md docs/DB_DESIGN.md docs/RUNBOOK.md docs/SECURITY_REVIEW.md
+# 过期表述自查（当前时态文档；退出码非 0 即失败）
+# 模式与文件名单**集中定义在脚本里** —— 不要再把模式内联回文档，
+# 否则守卫会匹配到它自己（这个坑踩过一次）。
+bash deploy/scripts/check-doc-staleness.sh
 ```

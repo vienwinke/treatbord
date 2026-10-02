@@ -45,6 +45,10 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # 文档数字守卫：比测试更便宜，放前面；过期数字曾经整表漂移过
+      - name: 文档过期表述守卫
+        run: bash deploy/scripts/check-doc-staleness.sh
+
       - name: Build & test
         env:
           MYSQL_HOST: 127.0.0.1
