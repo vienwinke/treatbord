@@ -184,10 +184,21 @@ public class UserService {
         User user = getById(userId);
         User update = new User();
         update.setId(userId);
-        // 匿名化：破坏 openid 唯一性，保留行供审计追溯，但不泄露原始 openid
-        update.setOpenid("DEL_" + UUID.randomUUID().toString().replace("-", ""));
-        update.setStatus(1);
-        userMapper.updateById(update);
+        // 匿名化：破坏 openid 唯一性，保留行供审计追溯，但不泄露原始 openid。
+        // ⚠️ 只改 openid 是不够的：nickname / avatar / 账密哈希同样是个人信息，
+        //    留着等于"注销了但痕迹还在"（SECURITY_REVIEW §2 要求注销后不可再关联到个人）。
+        //    这里用 UpdateWrapper 显式 set null —— updateById 默认忽略 null，清不掉列。
+        String anon = UUID.randomUUID().toString().replace("-", "");
+        userMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<User>()
+                        .eq(User::getId, userId)
+                        .set(User::getOpenid, "DEL_" + anon)
+                        .set(User::getUsername, "del_" + anon.substring(0, 12))
+                        .set(User::getNickname, "已注销用户")
+                        .set(User::getAvatar, null)
+                        .set(User::getPasswordHash, null)
+                        .set(User::getCreditScore, 100)
+                        .set(User::getStatus, 1));
         // 逻辑删除（deleted=1）
         userMapper.deleteById(userId);
     }

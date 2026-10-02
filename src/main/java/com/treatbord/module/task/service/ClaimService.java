@@ -178,6 +178,13 @@ public class ClaimService {
         if (!claim.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "只能取消自己的接取");
         }
+        // 与 docs/API_DESIGN.md §4 一致：已过接取截止则不允许取消 ——
+        // 名额是在接取时锁定的，截止后再放走会让"任务已满"的判定失去意义。
+        Task claimTask = taskMapper.selectById(claim.getTaskId());
+        if (claimTask != null && claimTask.getClaimDeadline() != null
+                && !claimTask.getClaimDeadline().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ResultCode.CLAIM_CANCEL_NOT_ALLOWED, "已过接取截止时间，不能取消接取");
+        }
         ClaimStatus.validateTransition(ClaimStatus.of(claim.getStatus()), ClaimStatus.CANCELLED);
 
         // CAS：仅 CLAIMED → CANCELLED

@@ -37,6 +37,7 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final TaskStatusLogMapper taskStatusLogMapper;
     private final TaskClaimMapper taskClaimMapper;
+    private final com.treatbord.module.task.mapper.ClaimStatusLogMapper claimStatusLogMapper;
     private final TaskCacheService taskCacheService;
     private final com.treatbord.module.submission.service.SubmissionViewAssembler submissionViewAssembler;
     private final com.treatbord.module.submission.mapper.TaskSubmissionMapper submissionMapper;
@@ -189,6 +190,30 @@ public class TaskService {
             throw new BusinessException(ResultCode.TASK_CANCEL_NOT_ALLOWED, "任务状态已变化，请刷新");
         }
         writeTaskLog(taskId, task.getStatus(), TaskStatus.CANCELLED.name(), operatorId, "发布者取消");
+
+        // 与 docs/API_DESIGN.md §4 一致：取消任务时**同步取消名下未完成的接取**。
+        // 不做的话这些 claim 会永久挂在 CLAIMED/SUBMITTED：接取者看到"任务已取消但我这条还在进行中"，
+        // 对账扫描也会一直报差异。
+        java.util.List<TaskClaim> pending = taskClaimMapper.selectList(
+                new LambdaQueryWrapper<TaskClaim>()
+                        .eq(TaskClaim::getTaskId, taskId)
+                        .in(TaskClaim::getStatus,
+                                com.treatbord.module.task.enums.ClaimStatus.CLAIMED.name(),
+                                com.treatbord.module.task.enums.ClaimStatus.SUBMITTED.name()));
+        for (TaskClaim c : pending) {
+            int claimCas = taskClaimMapper.casStatus(c.getId(), c.getStatus(),
+                    com.treatbord.module.task.enums.ClaimStatus.CANCELLED.name());
+            if (claimCas > 0) {
+                com.treatbord.module.task.entity.ClaimStatusLog clog =
+                        new com.treatbord.module.task.entity.ClaimStatusLog();
+                clog.setClaimId(c.getId());
+                clog.setFromStatus(c.getStatus());
+                clog.setToStatus(com.treatbord.module.task.enums.ClaimStatus.CANCELLED.name());
+                clog.setOperatorId(operatorId);
+                clog.setReason("任务被发布者取消");
+                claimStatusLogMapper.insert(clog);
+            }
+        }
         auditService.record(operatorId, "CANCEL_TASK", "task", taskId, "取消任务", httpReq);
         // 任务状态已变 → 失效该任务详情 + 列表缓存
         taskCacheService.onTaskChanged(taskId);
