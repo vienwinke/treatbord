@@ -53,32 +53,37 @@ public class ClaimService {
 
     /**
      * 接取任务（防超卖核心事务）。
-     * 顺序：原子扣减 → 快照 → 归属/信用校验 → 插 claim → 任务 OPEN→IN_PROGRESS。
+     * 顺序：查既有行 → 原子扣减（或仅校验可接取）→ 快照 → 归属/信用校验 → 插行或复活。
      * 唯一索引 (task_id,user_id) 兜底，冲突回滚（含原子扣减）。
+     *
+     * 重新接取（2026-10-02 修 bug）：取消/驳回后再次接取同一任务时**复用原行** ——
+     * task_claim 的唯一索引是 (task_id,user_id)，不含 status，插第二行必然撞键；
+     * 旧实现因此把「重接」报成 409「非法流转」，用户被永久锁死在该任务外。
+     * 名额语义按「是否已回减」区分：CANCELLED 时取消已回减 → 需重新扣减；
+     * REJECTED 时驳回不回减 → 只校验不再扣减，避免 claimed_count 虚高。
      */
     @Transactional(rollbackFor = Exception.class)
     public Long claim(Long taskId, Long userId, HttpServletRequest httpReq) {
-        // 1. 原子扣减名额（防超卖第一道防线）
-        int updated = taskMapper.incrementClaimedCount(taskId);
-        if (updated == 0) {
-            // 区分：不存在 / 状态不可接取 / 满员
-            Task t = taskMapper.selectById(taskId);
-            if (t == null) {
-                throw new BusinessException(ResultCode.TASK_NOT_FOUND);
+        // 0. 先查该用户在该任务的既有行（唯一索引保证至多一条）
+        TaskClaim existing = taskClaimMapper.selectOne(new LambdaQueryWrapper<TaskClaim>()
+                .eq(TaskClaim::getTaskId, taskId)
+                .eq(TaskClaim::getUserId, userId));
+
+        if (existing != null && !REACTIVATABLE.contains(existing.getStatus())) {
+            // CLAIMED / SUBMITTED / APPROVED：确实已有有效接取
+            throw new BusinessException(ResultCode.CLAIM_DUPLICATE);
+        }
+        boolean reactivate = existing != null;
+        boolean slotReleased = reactivate && ClaimStatus.CANCELLED.name().equals(existing.getStatus());
+
+        if (!reactivate || slotReleased) {
+            // 1. 原子扣减名额（防超卖第一道防线）
+            if (taskMapper.incrementClaimedCount(taskId) == 0) {
+                throw claimabilityFailure(taskId);
             }
-            boolean claimable = STATUS_OPEN.equals(t.getStatus()) || "IN_PROGRESS".equals(t.getStatus());
-            if (!claimable) {
-                throw new BusinessException(ResultCode.TASK_NOT_CLAIMABLE);
-            }
-            // 状态可接取却扣减失败：区分「已过截止」与「名额已满」
-            // （时间条件已在原子 SQL 用 DB NOW() 判定，这里只为给出正确错误码）
-            LocalDateTime now = LocalDateTime.now();
-            boolean deadlinePassed = t.getClaimDeadline() == null || !t.getClaimDeadline().isAfter(now)
-                    || t.getDeadline() == null || !t.getDeadline().isAfter(now);
-            if (deadlinePassed) {
-                throw new BusinessException(ResultCode.TASK_NOT_CLAIMABLE, "任务已过接取/完成截止时间");
-            }
-            throw new BusinessException(ResultCode.TASK_FULL, "任务名额已满");
+        } else if (taskMapper.countClaimable(taskId) == 0) {
+            // 1'. 驳回后复活：名额仍被本人占用，只校验任务仍可接取，不能再扣一次
+            throw claimabilityFailure(taskId);
         }
 
         // 2. 读取任务快照（reward 结算快照、publisher 校验）
@@ -97,20 +102,30 @@ public class ClaimService {
             throw new BusinessException(ResultCode.CREDIT_NOT_ENOUGH);
         }
 
-        // 5. 显式防重复（唯一索引兜底）
-        if (taskClaimMapper.countActiveClaim(taskId, userId) > 0) {
-            throw new BusinessException(ResultCode.CLAIM_DUPLICATE);
+        // 5. 插新行，或复活既有行（CAS，防并发重复复活）
+        Long claimId;
+        String fromStatus = null;
+        if (reactivate) {
+            ClaimStatus from = ClaimStatus.of(existing.getStatus());
+            ClaimStatus.validateTransition(from, ClaimStatus.CLAIMED);
+            int cas = taskClaimMapper.reactivate(existing.getId(), existing.getStatus(),
+                    ClaimStatus.CLAIMED.name(), task.getReward());
+            if (cas == 0) {
+                throw new BusinessException(ResultCode.CONFLICT, "接取状态已变化，请重试");
+            }
+            claimId = existing.getId();
+            fromStatus = existing.getStatus();
+        } else {
+            TaskClaim claim = new TaskClaim();
+            claim.setTaskId(taskId);
+            claim.setUserId(userId);
+            claim.setStatus(ClaimStatus.CLAIMED.name());
+            claim.setReward(task.getReward());
+            taskClaimMapper.insert(claim);
+            claimId = claim.getId();
         }
 
-        // 6. 插入接取记录（reward 结算快照）
-        TaskClaim claim = new TaskClaim();
-        claim.setTaskId(taskId);
-        claim.setUserId(userId);
-        claim.setStatus(ClaimStatus.CLAIMED.name());
-        claim.setReward(task.getReward());
-        taskClaimMapper.insert(claim);
-
-        // 7. 任务 OPEN → IN_PROGRESS（首次接取）
+        // 6. 任务 OPEN → IN_PROGRESS（首次接取）
         if (STATUS_OPEN.equals(task.getStatus())) {
             int cas = taskMapper.casStatus(taskId, STATUS_OPEN, TaskStatus.IN_PROGRESS.name());
             if (cas > 0) {
@@ -118,16 +133,39 @@ public class ClaimService {
             }
         }
 
-        // 8. 接取状态审计
-        writeClaimLog(claim.getId(), null, ClaimStatus.CLAIMED.name(), userId, "接取任务");
+        // 7. 接取状态审计（复活时 from=CANCELLED/REJECTED，保留完整轨迹）
+        writeClaimLog(claimId, fromStatus, ClaimStatus.CLAIMED.name(), userId,
+                reactivate ? "重新接取任务" : "接取任务");
         // 审计属旁路操作：移到事务提交后执行（不占用事务时间，回滚时也不会留下假记录）
         AfterCommit.run(() -> auditService.record(userId, "CLAIM_TASK", "task", taskId,
-                "接取任务 reward=" + claim.getReward(), httpReq));
+                "接取任务 reward=" + task.getReward() + (reactivate ? "（重新接取）" : ""), httpReq));
 
         // 名额与任务状态已变 → 失效任务缓存
         taskCacheService.onTaskChanged(taskId);
 
-        return claim.getId();
+        return claimId;
+    }
+
+    /**
+     * 扣减 / 可接取校验失败时给出准确错误码（不存在 / 状态不可接 / 已过截止 / 满员）。
+     * 时间条件已由原子 SQL 用 DB NOW() 判定，这里只为给出正确的错误码。
+     */
+    private BusinessException claimabilityFailure(Long taskId) {
+        Task t = taskMapper.selectById(taskId);
+        if (t == null) {
+            return new BusinessException(ResultCode.TASK_NOT_FOUND);
+        }
+        boolean claimable = STATUS_OPEN.equals(t.getStatus()) || "IN_PROGRESS".equals(t.getStatus());
+        if (!claimable) {
+            return new BusinessException(ResultCode.TASK_NOT_CLAIMABLE);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        boolean deadlinePassed = t.getClaimDeadline() == null || !t.getClaimDeadline().isAfter(now)
+                || t.getDeadline() == null || !t.getDeadline().isAfter(now);
+        if (deadlinePassed) {
+            return new BusinessException(ResultCode.TASK_NOT_CLAIMABLE, "任务已过接取/完成截止时间");
+        }
+        return new BusinessException(ResultCode.TASK_FULL, "任务名额已满");
     }
 
     /**
@@ -206,4 +244,8 @@ public class ClaimService {
     }
 
     private static final String STATUS_OPEN = "OPEN";
+
+    /** 可被「重新接取」复活的状态：CANCELLED（取消时名额已回减）与 REJECTED（名额未回减） */
+    private static final java.util.Set<String> REACTIVATABLE =
+            java.util.Set.of(ClaimStatus.CANCELLED.name(), ClaimStatus.REJECTED.name());
 }

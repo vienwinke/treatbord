@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.treatbord.module.task.entity.Task;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
@@ -23,6 +24,17 @@ public interface TaskMapper extends BaseMapper<Task> {
             "AND status IN ('OPEN', 'IN_PROGRESS') " +
             "AND claim_deadline > NOW() AND deadline > NOW() AND deleted = 0")
     int incrementClaimedCount(@Param("taskId") Long taskId);
+
+    /**
+     * 仅校验「当前是否可接取」，**不改名额** —— 专供「驳回后重新接取」这一条路径：
+     * 该用户的名额在驳回时并没有回减（回减只发生在取消 / 超时取消），
+     * 所以复活时不能再扣一次，否则 claimed_count 会虚高。
+     * 判定条件刻意与 incrementClaimedCount 保持一致（含用 DB NOW() 判截止）。
+     */
+    @Select("SELECT COUNT(*) FROM task WHERE id = #{taskId} " +
+            "AND status IN ('OPEN', 'IN_PROGRESS') " +
+            "AND claim_deadline > NOW() AND deadline > NOW() AND deleted = 0")
+    int countClaimable(@Param("taskId") Long taskId);
 
     /**
      * 名额回减（取消接取时），仅当已计数时 -1。

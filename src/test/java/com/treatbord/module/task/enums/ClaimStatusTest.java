@@ -22,7 +22,9 @@ class ClaimStatusTest {
             "CLAIMED,SUBMITTED",
             "CLAIMED,CANCELLED",
             "SUBMITTED,APPROVED",
-            "SUBMITTED,REJECTED"
+            "SUBMITTED,REJECTED",
+            "CANCELLED,CLAIMED",
+            "REJECTED,CLAIMED"
     })
     @DisplayName("合法流转不抛异常")
     void legalTransitions(ClaimStatus from, ClaimStatus to) {
@@ -36,8 +38,12 @@ class ClaimStatusTest {
             "SUBMITTED,CANCELLED",
             "SUBMITTED,CLAIMED",
             "APPROVED,REJECTED",
+            "APPROVED,CLAIMED",
+            "APPROVED,CANCELLED",
             "REJECTED,APPROVED",
-            "CANCELLED,CLAIMED"
+            "REJECTED,CANCELLED",
+            "CANCELLED,APPROVED",
+            "CANCELLED,REJECTED"
     })
     @DisplayName("非法流转抛 409 业务异常")
     void illegalTransitions(ClaimStatus from, ClaimStatus to) {
@@ -47,8 +53,8 @@ class ClaimStatusTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ClaimStatus.class, names = {"APPROVED", "REJECTED", "CANCELLED"})
-    @DisplayName("终态不可再流转")
+    @EnumSource(value = ClaimStatus.class, names = {"APPROVED"})
+    @DisplayName("终态不可再流转（APPROVED 已结算；CANCELLED / REJECTED 可复活为 CLAIMED）")
     void terminalStatesHaveNoWayOut(ClaimStatus terminal) {
         for (ClaimStatus to : ClaimStatus.values()) {
             assertThrows(BusinessException.class, () -> ClaimStatus.validateTransition(terminal, to));
