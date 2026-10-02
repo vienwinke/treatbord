@@ -32,7 +32,10 @@ public class AuditService {
             log.setIp(clientIp(req));
             loginLogMapper.insert(log);
         } catch (Exception e) {
-            // 审计失败不阻塞主流程
+            // 审计失败不阻塞主流程 —— 但**必须留痕**：静默吞掉会让"关键操作都有审计"
+            // 变成一句无法验证的话（数据丢了也没人知道）。
+            org.slf4j.LoggerFactory.getLogger(AuditService.class)
+                    .error("[AUDIT] 登录日志写入失败 userId={} success={}", userId, success, e);
         }
     }
 
@@ -49,7 +52,10 @@ public class AuditService {
             log.setIp(req == null ? null : clientIp(req));
             auditLogMapper.insert(log);
         } catch (Exception e) {
-            // 审计失败不阻塞主流程
+            // 同上：不阻塞主流程，但要把失败暴露出来
+            org.slf4j.LoggerFactory.getLogger(AuditService.class)
+                    .error("[AUDIT] 操作审计写入失败 action={} target={}:{}",
+                            action, targetType, targetId, e);
         }
     }
 

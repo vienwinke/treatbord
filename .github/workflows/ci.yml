@@ -1,10 +1,10 @@
 name: CI
 
+# 任意分支的 push / PR 都要跑：此前只在 main 上触发，于是**在分支上开发时完全没有 CI**，
+# 问题只能等合回 main 才暴露（agent 仓库一直是任意 push，这里对齐）。
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
