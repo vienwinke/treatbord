@@ -173,6 +173,12 @@ Page({
   },
 
   /* ══ 功能区：常用功能入口 ══ */
+
+  goAiChat() {
+    // 与其他入口保持一致：未登录先引导登录（页面自身也有一层保护）
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/ai-chat/ai-chat' })
+  },
   goNotifications() {
     if (!this.requireLogin()) return
     wx.navigateTo({ url: '/pages/notifications/notifications' })

@@ -10,6 +10,7 @@
     "pages/submit/submit",
     "pages/review/review",
     "pages/notifications/notifications",
+    "pages/ai-chat/ai-chat",
     "pages/report/report",
     "pages/peer-review/peer-review",
     "pages/admin/admin",

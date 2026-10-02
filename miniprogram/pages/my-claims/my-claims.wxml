@@ -44,6 +44,11 @@
   <!-- ══ 功能区：常用功能 ══ -->
   <view class="func-card">
     <view class="func-title">常用功能</view>
+    <view class="func-item" bindtap="goAiChat">
+      <view class="func-ic">🤖</view>
+      <text class="func-name">AI 数据问答</text>
+      <text class="func-arrow">›</text>
+    </view>
     <view class="func-item" bindtap="goNotifications">
       <view class="func-ic">🔔</view>
       <text class="func-name">消息通知</text>

@@ -4,6 +4,17 @@
 const req = require('./request')
 
 module.exports = {
+  // ---- AI 问答 §AI ----
+  // 注意：流式问答不走这里（要 enableChunked），见 utils/sse.js；这几个是非流式与会话接口
+  aiAsk: (data) => req.post('/ai/ask', {
+    session_id: data.session_id, question: data.question, client_msg_id: data.client_msg_id
+  }, { auth: true }),
+  aiSessions: () => req.get('/ai/sessions', { auth: true }),
+  aiMessages: (id) => req.get('/ai/sessions/' + id + '/messages', { auth: true }),
+  aiDeleteSession: (id) => req.del('/ai/sessions/' + id, { auth: true }),
+  aiFeedback: (data) => req.post('/ai/feedback',
+    { message_id: data.message_id, rating: data.rating, comment: data.comment }, { auth: true }),
+
   // ---- 认证 §2 ----
   login: (code) => req.post('/auth/login', { code }),
   accountLogin: (username, password) => req.post('/auth/account/login', { username, password }),

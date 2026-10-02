@@ -1,0 +1,72 @@
+<view class="page">
+  <!-- 顶部：当前会话 + 最近会话抽屉 -->
+  <view class="bar">
+    <text class="bar-title">数据问答</text>
+    <text class="bar-btn" bindtap="toggleDrawer">最近会话 ›</text>
+  </view>
+
+  <view wx:if="{{drawerOpen}}" class="drawer">
+    <view wx:if="{{sessions.length === 0}}" class="drawer-empty">还没有历史会话</view>
+    <view wx:for="{{sessions}}" wx:key="id" class="drawer-item" data-id="{{item.id}}" bindtap="openSession">
+      <text class="drawer-title">{{item.title || '未命名会话'}}</text>
+      <text class="drawer-time">{{item.updated_at}}</text>
+      <text class="drawer-del" catchtap="removeSession" data-id="{{item.id}}">删除</text>
+    </view>
+    <view class="drawer-new" bindtap="newSession">＋ 新建会话</view>
+  </view>
+
+  <!-- 消息区 -->
+  <scroll-view class="chat" scroll-y scroll-into-view="{{scrollTo}}" scroll-with-animation>
+    <view wx:if="{{messages.length === 0}}" class="empty">
+      <view class="empty-ic">🤖</view>
+      <view class="empty-title">问我 treatbord 里的数据</view>
+      <view class="empty-sub">只返回你有权限看到的数据，答案基于真实 SQL 执行结果</view>
+      <view wx:for="{{samples}}" wx:key="*this" class="sample" data-q="{{item}}" bindtap="onSample">{{item}}</view>
+    </view>
+
+    <view wx:for="{{messages}}" wx:key="key" id="msg-{{index}}" class="msg {{item.role}}">
+      <view class="bubble">
+        <view wx:if="{{item.denied}}" class="tag tag-deny">已拒答 · {{item.scopeReason || '超出你的数据范围'}}</view>
+        <view wx:if="{{item.error}}" class="tag tag-err">{{item.error}}</view>
+
+        <text wx:if="{{item.text}}" class="text">{{item.text}}</text>
+        <text wx:elif="{{item.streaming}}" class="text typing">正在分析…</text>
+
+        <scroll-view wx:if="{{item.tables.length}}" scroll-x class="tbl-wrap">
+          <view wx:for="{{item.tables}}" wx:for-item="tbl" wx:key="index" class="tbl">
+            <view class="tr th">
+              <text wx:for="{{tbl.columns}}" wx:for-item="cell" wx:key="*this" class="td">{{cell}}</text>
+            </view>
+            <view wx:for="{{tbl.rows}}" wx:for-item="row" wx:key="index" class="tr">
+              <text wx:for="{{row}}" wx:for-item="cell" wx:key="index" class="td">{{cell}}</text>
+            </view>
+            <view class="tbl-note">
+              共 {{tbl.rowCount}} 行<text wx:if="{{tbl.truncated}}"> · 已截断</text><text wx:if="{{tbl.masked.length}}"> · 已脱敏</text>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view wx:if="{{item.citations.length}}" class="cites">
+          <view class="cites-head">依据 {{item.citations.length}} 条</view>
+          <view wx:for="{{item.citations}}" wx:for-item="c" wx:key="title" class="cite">· {{c.title}}</view>
+        </view>
+
+        <view wx:if="{{!item.streaming && item.role === 'assistant'}}" class="meta">
+          <text wx:if="{{item.elapsed}}" class="meta-l">{{item.elapsed}}ms · {{item.tokens}} tokens</text>
+          <view class="rate">
+            <text class="rate-ic {{item.rated === 1 ? 'on' : ''}}" data-idx="{{index}}" data-rating="1" bindtap="rate">👍</text>
+            <text class="rate-ic {{item.rated === -1 ? 'on' : ''}}" data-idx="{{index}}" data-rating="-1" bindtap="rate">👎</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view id="msg-bottom" style="height: 8rpx"></view>
+  </scroll-view>
+
+  <!-- 输入区 -->
+  <view class="input-bar">
+    <input class="input" value="{{input}}" placeholder="例如：我接取的任务里有多少已完成？"
+           confirm-type="send" bindinput="onInput" bindconfirm="onSend" disabled="{{sending}}" />
+    <view class="send {{sending ? 'disabled' : ''}}" bindtap="onSend">{{sending ? '…' : '发送'}}</view>
+  </view>
+</view>
