@@ -4,7 +4,9 @@
 # 密钥一律通过环境变量注入，禁止写死入库（docs/SECURITY_REVIEW.md D3）
 # ============================================================
 server:
-  port: 8080
+  # 必须支持覆盖：docker-compose 里设的 SERVER_PORT 此前**完全不生效**（硬编码 8080），
+  # 而容器内 base-url 又要按实际端口判断是否自指。
+  port: ${SERVER_PORT:8080}
   servlet:
     encoding:
       charset: UTF-8

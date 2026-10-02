@@ -69,6 +69,13 @@ public class AiChatController {
             fail(emitter, "UNAUTHENTICATED", "未登录");
             return emitter;
         }
+        if (!sidecar.configured()) {
+            // 与未配 jwt-secret 同样的 fail-closed：宁可不回答，也不要静默打到别处
+            fail(emitter, "SIDECAR_NOT_CONFIGURED",
+                    "未配置 treatbord.ai.sidecar.base-url，AI 问答未启用"
+                            + "（同机填 http://127.0.0.1:8081，docker 填服务名）");
+            return emitter;
+        }
         if (!tokenService.configured()) {
             // fail-closed：宁可不可用，也不裸调边车（那等于绕过身份）
             fail(emitter, "AUTH_NOT_CONFIGURED",

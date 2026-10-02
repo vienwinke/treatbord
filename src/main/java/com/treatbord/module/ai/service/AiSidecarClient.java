@@ -34,11 +34,23 @@ public class AiSidecarClient {
     private final long timeoutMs;
 
     public AiSidecarClient(AiTokenService tokenService,
-                           @Value("${treatbord.ai.sidecar.base-url:http://127.0.0.1:8080}") String baseUrl,
-                           @Value("${treatbord.ai.sidecar.timeout-ms:8000}") long timeoutMs) {
+                           @Value("${treatbord.ai.sidecar.base-url:}") String baseUrl,
+                           @Value("${treatbord.ai.sidecar.timeout-ms:8000}") long timeoutMs,
+                           @Value("${server.port:8080}") int serverPort) {
         this.tokenService = tokenService;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        // ★ 故意**不给默认值**（原来默认 http://127.0.0.1:8080，而 server.port 也是 8080）：
+        //   那个默认在任何环境里都是错的 —— 同机时指向 treatbord 自己，容器里同样指自己。
+        //   自指不会报"端口冲突"，而是每次问答把请求打回自己的 /v1/ai/chat（404），
+        //   再被 classify 成 502「AI 服务调用异常」，排查会绕很久（实测踩到）。
+        this.baseUrl = (baseUrl == null || baseUrl.isBlank())
+                ? null
+                : (baseUrl.trim().endsWith("/")
+                        ? baseUrl.trim().substring(0, baseUrl.trim().length() - 1)
+                        : baseUrl.trim());
         this.timeoutMs = timeoutMs;
+        if (this.baseUrl != null) {
+            rejectSelfReference(this.baseUrl, serverPort);
+        }
         // ★ 必须显式指定 HTTP/1.1：JDK HttpClient 默认会对明文端口尝试 **h2c 升级**
         //   （发 `Upgrade: h2c` + `HTTP2-Settings` + `Transfer-encoding: chunked`）。
         //   边车是 uvicorn，不支持该升级 —— 结果是请求体被丢掉，边车报
@@ -50,6 +62,56 @@ public class AiSidecarClient {
                         .connectTimeout(Duration.ofSeconds(2)).build());
         factory.setReadTimeout(Duration.ofMillis(timeoutMs + 2000));   // ≥ 边车端到端预算
         this.client = RestClient.builder().requestFactory(factory).build();
+    }
+
+    /** 边车是否已配置。未配置时 /api/ai/** fail-closed（与未配 jwt-secret 同样处理） */
+    public boolean configured() {
+        return baseUrl != null;
+    }
+
+    /**
+     * 在**启动期**拒绝"base-url 指向自己"。
+     *
+     * 为什么必须是启动期硬错误：自指是静默的 —— 不报端口冲突，只是每次问答都得到
+     * 一个 404 被包成 502。宁可起不来（并给出正确例子），也不要上线后靠猜。
+     */
+    private static void rejectSelfReference(String baseUrl, int serverPort) {
+        java.net.URI uri;
+        try {
+            uri = java.net.URI.create(baseUrl);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(
+                    "treatbord.ai.sidecar.base-url 不是合法 URL：" + baseUrl, e);
+        }
+        String host = uri.getHost() == null ? "" : uri.getHost();
+        boolean loopback = host.equals("127.0.0.1") || host.equalsIgnoreCase("localhost")
+                || host.equals("::1") || host.equals("[::1]");
+        int port = uri.getPort() == -1
+                ? ("https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80)
+                : uri.getPort();
+        if (loopback && port == serverPort) {
+            throw new IllegalStateException(String.format(
+                    "treatbord.ai.sidecar.base-url 指向了 treatbord 自己（%s，而 server.port=%d）。"
+                            + "同机部署请给边车单独端口（SIDECAR_PORT，默认 8081），"
+                            + "例如 http://127.0.0.1:8081；docker 部署请填服务名，例如 http://sidecar:8080",
+                    baseUrl, serverPort));
+        }
+    }
+
+    /**
+     * 取边车地址；**未配置直接 fail-closed**。
+     *
+     * 为什么要包一层而不是直接用字段：`baseUrl` 现在可以是 null（不再给自指默认值），
+     * 而下游是 `baseUrl + "/v1/ai/chat"` —— 直接拼会变成 `"null/v1/ai/chat"` 或 NPE，
+     * 报出来的是"AI 服务调用异常"，看不出真正原因。这条路径覆盖 /chat、/ask、透传三类入口。
+     */
+    private String requireBaseUrl() {
+        if (baseUrl == null) {
+            throw new SidecarHttpException(503,
+                    "未配置 treatbord.ai.sidecar.base-url，AI 问答未启用"
+                            + "（同机填 http://127.0.0.1:8081，docker 填服务名）");
+        }
+        return baseUrl;
     }
 
     /** 角色映射：treatbord 目前只有 0=普通用户 / 1=管理员（OPERATOR 档位预留） */
@@ -67,7 +129,7 @@ public class AiSidecarClient {
         String traceId = UUID.randomUUID().toString().replace("-", "");
         try {
             client.post()
-                    .uri(baseUrl + "/v1/ai/chat")
+                    .uri(requireBaseUrl() + "/v1/ai/chat")
                     .header("Authorization", "Bearer " + token)
                     .header("X-Trace-Id", traceId)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -154,7 +216,7 @@ public class AiSidecarClient {
         String token = tokenService.issue(userId, role, sessionJti);
         org.springframework.web.client.RestClient.RequestBodySpec spec =
                 client.method(org.springframework.http.HttpMethod.valueOf(method))
-                        .uri(baseUrl + path)
+                        .uri(requireBaseUrl() + path)
                         .header("Authorization", "Bearer " + token)
                         .header("X-Trace-Id", UUID.randomUUID().toString().replace("-", ""));
         if (body != null) {
