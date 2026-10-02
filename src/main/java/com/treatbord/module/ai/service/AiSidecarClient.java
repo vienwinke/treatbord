@@ -127,6 +127,7 @@ public class AiSidecarClient {
                            Consumer<String> onLine) {
         String token = tokenService.issue(userId, role, sessionJti);
         String traceId = UUID.randomUUID().toString().replace("-", "");
+        long startedAt = System.nanoTime();
         try {
             client.post()
                     .uri(requireBaseUrl() + "/v1/ai/chat")
@@ -162,6 +163,23 @@ public class AiSidecarClient {
         } catch (RestClientResponseException e) {
             throw new SidecarHttpException(e.getStatusCode().value(), "边车调用失败: " + e.getMessage());
         } catch (RuntimeException e) {
+            // ★ 流**已经建立之后**被掐断时，JDK 抛的是 `IOException: closed` ——
+            //   因为超时是在**读 body** 阶段触发的，异常从响应流上冒出来，
+            //   拿不到 HttpTimeoutException，于是被 classify 归进 502
+            //   「连接被中断，多半不是网络问题，请看边车日志」。
+            //   而真实原因往往恰恰相反：边车**还在算**（冷启动 + 一次 LLM 5~10s），
+            //   边车日志干净得很 —— 那句话会把排查方向带偏（实测真链路踩到）。
+            //
+            //   判据：到达读超时阈值就按 504「边车还在算」处理；没到阈值才算真被中断。
+            //   用耗时而不是异常类型，是因为异常类型依赖 JDK/Spring 的内部路径，
+            //   实测在两种超时形态下给出的异常并不相同（发头前超时 → HttpTimeoutException；
+            //   发头后超时 → IOException: closed）。
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            if (elapsedMs >= timeoutMs) {
+                throw new SidecarHttpException(504,
+                        "AI 服务响应超时（边车还在算，已等 " + elapsedMs + "ms，预算 " + timeoutMs
+                                + "ms）：请查边车侧预算与模型耗时");
+            }
             throw classify(e, "chat");
         }
     }

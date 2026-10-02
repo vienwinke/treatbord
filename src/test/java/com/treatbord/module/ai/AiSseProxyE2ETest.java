@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -51,6 +52,16 @@ class AiSseProxyE2ETest {
 
     /** true = 假边车"还在算"，用于验证 Java 侧的超时降级 */
     private static volatile boolean slowMode = false;
+
+    /**
+     * true = 假边车**先发响应头与一帧、然后卡住**。
+     *
+     * 这模拟的是真实场景里最难判的那种：边车已经 200 开始回帧，只是在算（冷启动 + LLM 5~10s）。
+     * 与 slowMode 的区别很关键 —— slowMode 是"发头之前就睡"（超时从 send 抛出，能拿到
+     * HttpTimeoutException → 504）；本模式超时发生在**读 body** 阶段，JDK 抛的是
+     * `IOException: closed`，若不特殊处理会被归到 502「连接被中断」。实测真链路就踩到这个。
+     */
+    private static volatile boolean stallMode = false;
 
     @DynamicPropertySource
     static void sidecarProperties(DynamicPropertyRegistry registry) throws IOException {
@@ -79,6 +90,19 @@ class AiSseProxyE2ETest {
     // ---------------------------------------------------------------- 假边车
     private static void handleChat(com.sun.net.httpserver.HttpExchange exchange) throws IOException {
         try {
+            if (stallMode) {
+                // 先发头 + 一帧（chunked），再卡住且**不写终止帧** → 模拟"边车还在算"
+                byte[] head = "event: meta\ndata: {\"trace_id\":\"t-stall\"}\n\n"
+                        .getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "text/event-stream; charset=utf-8");
+                exchange.sendResponseHeaders(200, 0);          // 0 = chunked，长度未知
+                try (OutputStream out = exchange.getResponseBody()) {
+                    out.write(head);
+                    out.flush();
+                    Thread.sleep(6000);                        // 远超读超时（800 + 2000 = 2800）
+                }
+                return;
+            }
             if (slowMode) {
                 Thread.sleep(4000);      // 超过 Java 侧读超时（800 + 2000）
             }
@@ -139,6 +163,24 @@ class AiSseProxyE2ETest {
                 "SSE 帧名与顺序必须原样透传，实际响应：\n" + body);
         assertTrue(body.contains("这是假边车"), "delta 的 data 不应被改写：\n" + body);
         assertTrue(body.contains("\"cost_yuan\":0.0001"), "done 的字段应完整保留：\n" + body);
+    }
+
+    @Test
+    @DisplayName("流已开始后卡住：必须按超时处理（SIDECAR_TIMEOUT），不能退化成通用 502")
+    void stalledStreamIsReportedAsTimeoutNotGenericError() throws Exception {
+        stallMode = true;
+        try {
+            HttpResponse<String> response = callChat();
+            assertEquals(200, response.statusCode());
+            String body = response.body();
+            assertTrue(body.contains("SIDECAR_TIMEOUT"),
+                    "边车已回帧后卡住 = 它还在算，应按超时上报（504 语义）。实际响应：\n" + body);
+            assertFalse(body.contains("SIDECAR_ERROR"),
+                    "不得退化成 502「连接被中断、多半不是网络问题」—— 那句话会把排查方向带偏"
+                            + "（边车日志是干净的）。实际响应：\n" + body);
+        } finally {
+            stallMode = false;
+        }
     }
 
     @Test
