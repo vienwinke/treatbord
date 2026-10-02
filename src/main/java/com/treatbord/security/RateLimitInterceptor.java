@@ -73,6 +73,19 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (uri.startsWith("/files/")) {
             return "fileview";
         }
+        // ★ AI 问答走真实 LLM，是**真金白银的成本**（审计表里就有 cost_yuan 字段）；
+        //   此前 /api/ai/** 完全不在限流范围内，可以被无限刷。
+        if (uri.startsWith("/api/ai/")) {
+            return "ai";
+        }
+        // 改密/换绑：不限制会被拿来爆破，也会被刷 BCrypt 的 CPU
+        if (uri.equals("/api/users/me/credentials")) {
+            return "credential";
+        }
+        // 管理端：写操作影响面大（下架/封禁/处置举报），单独计数
+        if (uri.startsWith("/api/admin/")) {
+            return "admin";
+        }
         return null;
     }
 }
