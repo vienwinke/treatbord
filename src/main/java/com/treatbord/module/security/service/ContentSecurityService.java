@@ -15,7 +15,7 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 
 /**
- * 内容安全检测（真实接入微信，docs/STANDARDIZATION_PLAN.md P0-5 / SECURITY_REVIEW §2.3）。
+ * 内容安全检测（真实接入微信，P0-5 / SECURITY_REVIEW §2.3）。
  *
  * <ul>
  *   <li><b>文本</b>：{@code wxa/msg_sec_check}（同步，suggest=risky 直接拦截）</li>

@@ -12,7 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * 启动配置校验（docs/STANDARDIZATION_PLAN.md P0-2）。
+ * 启动配置校验（P0-2）。
  *
  * <p>生产环境（prod profile）下校验必需密钥与强度，缺失/过弱直接拒绝启动，
  * 避免"带默认密钥上线"这类高危事故。开发环境跳过。

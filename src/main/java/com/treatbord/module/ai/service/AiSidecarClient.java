@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * 调 AI 边车并把 SSE 流**逐行转发**给调用方（契约 §2、docs/treatbord嵌入-Java侧接入要点.md）。
+ * 调 AI 边车并把 SSE 流**逐行转发**给调用方（契约 §2、TBagent 仓库 docs/treatbord嵌入-Java侧接入要点.md）。
  *
  * 两个容易写错的地方：
  * 1. **不要缓冲整段**：一旦等边车把整段返回完再转发，流式就白做了（首字延迟等于整段延迟）；

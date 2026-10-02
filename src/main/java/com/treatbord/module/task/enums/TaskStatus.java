@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 任务状态机（docs/AGENTS.md §6 / API_DESIGN.md §3）。
+ * 任务状态机（AGENTS.md §6 / API_DESIGN.md §3）。
  *
  * OPEN →(有人接取)→ IN_PROGRESS →(提交齐)→ REVIEWING →(全部通过)→ SETTLED
  * OPEN →(接取截止无人)→ EXPIRED

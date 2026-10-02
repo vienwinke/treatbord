@@ -1,5 +1,9 @@
 # 上线清单（Go-Live Checklist）
 
+> ⚠️ **时点快照**：本文成文于 2026-09-27 的上线准备阶段，文中数字（接口/文件/页面数、
+> 迁移范围 V1~V8）为当时实测，**不随代码演进更新**；当前数字以
+> [CONSISTENCY_CHECKLIST.md](CONSISTENCY_CHECKLIST.md) 为准。
+
 > 配套：[RUNBOOK.md](RUNBOOK.md)（启动/运维）· [SECURITY_REVIEW.md](SECURITY_REVIEW.md)（安全审核）· [CONSISTENCY_CHECKLIST.md](CONSISTENCY_CHECKLIST.md)（文档↔代码）
 
 ## 一、运行时必需文件（仓库内）

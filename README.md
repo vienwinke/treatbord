@@ -21,9 +21,9 @@
 
 Treatbord 是一个面向微信小程序的任务接取平台。用户可以发布悬赏任务（如拍照、取快递、翻译资料），其他用户接取并在完成后提交凭证，发布者审核通过后进入结算流程。
 
-项目采用**前后端分离**架构：后端提供 RESTful API（34 个接口），前端为微信小程序原生开发（17 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
+项目采用**前后端分离**架构：后端提供 RESTful API（40 个接口），前端为微信小程序原生开发（17 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
 
-**规模**：后端 116 个 Java 文件 / 7.1k 行 · 34 个接口 · 14 张表 · 7 份产品文档 · 小程序 17 个页面 · 93 个自动化测试用例
+**规模**：后端 124 个 Java 文件 / 7.9k 行 · 40 个接口 · 19 张表（14 业务 + 5 AI）· 7 份产品文档 · 小程序 17 个页面 · 129 个自动化测试用例
 
 ---
 
@@ -98,7 +98,7 @@ MySQL 14 张业务表（最小权限只读账号）
 | 层 | 职责 |
 |---|---|
 | 拦截器层 | 限流 → 鉴权（JWT 校验 + jti 黑名单 + 封禁拦截 + `@RequireAdmin`）|
-| Controller | 参数校验（Bean Validation）、DTO/VO 转换，**不返回实体** |
+| Controller | 参数校验（Bean Validation）、DTO/VO 转换，**不返回实体**（尚有 2 处例外：文件上传返回 `FileRecord`、凭证详情返回实体，待补 VO）|
 | Service | 业务规则、状态机流转、事务边界、审计埋点 |
 | Mapper | MyBatis-Plus + 注解 SQL（原子扣减/CAS 更新）|
 
@@ -140,7 +140,7 @@ private static final Map<TaskStatus, Set<TaskStatus>> TRANSITIONS = Map.of(
 ### 3. 认证与越权防护
 
 - **JWT（HS256，含 `jti`）**：登出/封禁时将 `jti` 写入 Redis 黑名单 → **立即踢人下线**
-- **资源归属校验**：所有按 id 操作的接口强制校验 `task.publisher_id` / `claim.user_id`（防 IDOR），实测越权访问返回 403
+- **资源归属校验**：所有按 id 操作的接口强制校验 `task.publisher_id` / `claim.user_id`（防 IDOR），实测越权访问返回 `body.code=403`（HTTP 状态码统一为 200，见「统一响应体」）
 - **多级限流**：Redis 固定窗口，登录/接取/提交/上传分级阈值（存 `app_config` 可热调）
 - **密码安全**：BCrypt（预哈希 + pepper），兼容历史 SHA-256 哈希并**登录时自动升级**
 
@@ -291,14 +291,14 @@ treatbord/
 │   ├── application*.yml     # 多环境配置
 │   └── db/migration/        # Flyway 迁移脚本 V1~V11
 ├── miniprogram/             # 微信小程序（17 页面）
-└── docs/                    # 设计文档（8 份）
+└── docs/                    # 设计文档（7 份）
 ```
 
 ---
 
 ## 📡 API 概览
 
-共 **34 个接口**，统一响应体 `Result<T>`，`page/pageSize` 分页（上限 20）。
+共 **40 个接口**，统一响应体 `Result<T>`，`page/pageSize` 分页（上限 20）。
 
 | 模块 | 接口 |
 |---|---|
@@ -319,7 +319,8 @@ treatbord/
 
 ## 🗄️ 数据库设计
 
-14 张表，全部含 `id / create_time / update_time / deleted`（逻辑删除），**不使用物理外键**（靠索引 + 应用层保证）。
+19 张表（14 张业务表 + 5 张 `ai_*` 表）。**并非所有表都含 `deleted`**：`task_status_log`、`claim_status_log`、`audit_log`、`login_log`、`app_config`
+以及 5 张 `ai_*` 表用的是各自的时间列（`ai_*` 为 `created_at`/`updated_at`）；业务表**不使用物理外键**（靠索引 + 应用层保证）。
 
 | 分类 | 表 |
 |---|---|
@@ -328,6 +329,7 @@ treatbord/
 | 结算 | `settlement`（预留：只跑状态位，不打款）|
 | 审计 | `task_status_log`、`claim_status_log`、`audit_log`、`login_log` |
 | 配置 | `app_config`（限流阈值/审核窗口等运行期可调）|
+| AI 问答（V9~V12）| `ai_query_audit`、`ai_chat_session`、`ai_chat_message`、`ai_feedback`、`ai_prompt_version` |
 
 关键索引：`task(status, claim_deadline)`、`task_claim` 唯一索引 `(task_id, user_id)`、`notification(user_id, is_read, create_time)`。
 
@@ -339,8 +341,8 @@ treatbord/
 
 | 文档 | 内容 |
 |---|---|
-| [API_DESIGN.md](docs/API_DESIGN.md) | 34 个接口的完整规格（参数/响应/错误码/业务规则）|
-| [DB_DESIGN.md](docs/DB_DESIGN.md) | 14 张表设计、索引策略、设计决策记录 |
+| [API_DESIGN.md](docs/API_DESIGN.md) | 平台侧 34 个接口的完整规格（参数/响应/错误码/业务规则）；AI 问答接口另见 agent 仓库 `docs/treatbord嵌入-接口契约.md` |
+| [DB_DESIGN.md](docs/DB_DESIGN.md) | 14 张业务表设计、索引策略、设计决策记录（5 张 `ai_*` 表见 `db/migration/V9`） |
 | [SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | 上架前安全审核：越权/注入/文件上传/密钥/可靠性 |
 | [RUNBOOK.md](docs/RUNBOOK.md) | 启动/停止/排障手册（含压测/备份演练记录与运维动作） |
 | [GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md) | **上线清单**：所需文件、生产环境变量、部署产物（Docker 路线） |
@@ -371,10 +373,10 @@ treatbord/
 - [ ] Maven 多模块拆分（common / pojo / server）+ 常量类体系
 - [ ] 测试体系：JUnit5 + ArchUnit + Testcontainers（防超卖/状态机/越权）
 - [ ] API 文档增强（Knife4j 中文文档 + 注解补全）
-- [ ] 业务缓存（任务列表/详情 Redis 缓存）
+- [x] ~~业务缓存（任务列表/详情 Redis 缓存）~~ —— **已实现**：`TaskCacheService`（Cache-Aside + 版本号失效 + 空值防穿透）
 - [ ] Druid 连接池 + SQL 监控
 - [ ] 分布式锁（Redisson）支撑多实例定时任务
-- [ ] 监控告警（Micrometer + Prometheus）
+- [x] ~~监控告警（Micrometer + Prometheus）~~ —— **已实现**：`BusinessMetrics` + `/actuator/prometheus`（6 个业务指标）
 - [ ] 微信支付接入（当前为结算状态位）
 
 ---

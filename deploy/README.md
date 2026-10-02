@@ -33,7 +33,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 docker compose -f deploy/docker-compose.yml ps
 ```
 
-> `app` **不发布端口**，外部只能经 nginx（HTTPS）；Flyway 会在 app 启动时自动执行 V1~V8 迁移。
+> `app` **不发布端口**，外部只能经 nginx（HTTPS）；Flyway 会在 app 启动时自动执行 V1~V12 迁移。
 
 ## 三、验证
 

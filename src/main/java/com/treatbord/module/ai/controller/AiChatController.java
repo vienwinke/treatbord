@@ -36,7 +36,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * 失败：以 `event: error` 帧形式收尾（与边车一致），而不是抛 500 —— 前端只需一套渲染逻辑。
  *
  * ⚠️ 小程序侧：`wx.request` 不支持标准 SSE 消费，正式接入请用 WSS 或
- * `enableChunked` 自切片（见 docs/treatbord嵌入-Java侧接入要点.md §1）。
+ * `enableChunked` 自切片（见 TBagent 仓库 docs/treatbord嵌入-Java侧接入要点.md §1）。
  */
 @RestController
 @RequestMapping("/api/ai")

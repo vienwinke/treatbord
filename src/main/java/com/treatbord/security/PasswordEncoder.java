@@ -10,7 +10,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * 密码哈希（标准化升级版，docs/STANDARDIZATION_PLAN.md P0-4）。
+ * 密码哈希（标准化升级版，P0-4）。
  *
  * <p>存储格式：
  * <ul>

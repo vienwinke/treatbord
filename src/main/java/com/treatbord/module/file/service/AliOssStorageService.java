@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
- * 阿里云 OSS 存储实现（生产环境，docs/STANDARDIZATION_PLAN.md P0-3）。
+ * 阿里云 OSS 存储实现（生产环境，P0-3）。
  *
  * <p>启用方式：{@code treatbord.storage.type=oss} + 注入
  * OSS_ENDPOINT / OSS_BUCKET / OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET。

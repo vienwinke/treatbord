@@ -7,22 +7,22 @@
 
 | 项目 | 文档声明 | 实测 | 核对方式 | 一致 |
 |---|---|---|---|---|
-| 后端 Java 文件 | 116 | 116 | `find src/main/java -name '*.java' \| wc -l` | ✅ |
-| 后端代码行数 | 6.8k | 6895 | `find … -exec cat {} + \| wc -l` | ✅ |
-| REST 接口数 | 34 | 34 | 统计 `@GetMapping/@PostMapping/@PutMapping/@DeleteMapping` | ✅ |
-| Controller 数量 | — | 12 | `find src/main/java -name '*Controller.java'` | — |
-| 小程序页面数 | 16 | 16 | `app.json` 的 `pages` 长度 | ✅ |
-| 业务表数量 | 14 | 14（不含 `flyway_schema_history`） | `information_schema.tables` | ✅ |
+| 后端 Java 文件 | 124 | 124 | `find src/main/java -name '*.java' \| wc -l` | ✅ |
+| 后端代码行数 | 7.9k | 7911（`wc -l` 口径） | `find … -exec cat {} + \| wc -l` | ✅ |
+| REST 接口数 | 40 | 40 | 统计方法级 `@GetMapping/@PostMapping/@PutMapping/@DeleteMapping` | ✅ |
+| Controller 数量 | — | 13 | `find src/main/java -name '*Controller.java'` | — |
+| 小程序页面数 | 17 | 17 | `app.json` 的 `pages` 长度 | ✅ |
+| 表数量 | 19（14 业务 + 5 AI） | 19（不含 `flyway_schema_history`） | `information_schema.tables` | ✅ |
 | 设计文档数 | 7 | 7 | `ls docs \| wc -l` | ✅ |
-| 自动化测试用例 | 93 | 93（20 个测试类） | `mvn test` 输出 / `find src/test -name '*Test.java'` | ✅ |
-| 测试类数量 | 20 | 20 | 同上 | ✅ |
+| 自动化测试用例 | 129 | 129 次执行（25 个测试类） | `mvn test` 输出 | ✅ |
+| 测试类数量 | 25 | 25 | `find src/test -name '*Test.java'` | ✅ |
 
 ## 二、数据库迁移
 
 | 项目 | 声明 | 实测 |
 |---|---|---|
-| 迁移脚本 | V1~V8（8 个文件） | V1__init_schema.sql V2__seed_config.sql V3__file_sec_status.sql V4__add_user_account.sql V5__add_missing_config_keys.sql V6__add_claim_scan_indexes.sql V7__add_ratelimit_config_keys.sql V8__add_login_lock_config_keys.sql |
-| `flyway_schema_history` | 8 条全部成功，最新 V8 | 演练中实测：`共8条 最新=V8 成功=8` ✅ |
+| 迁移脚本 | V1~V12（12 个文件） | V1__init_schema.sql · V2__seed_config.sql · V3__file_sec_status.sql · V4__add_user_account.sql · V5__add_missing_config_keys.sql · V6__add_claim_scan_indexes.sql · V7__add_ratelimit_config_keys.sql · V8__add_login_lock_config_keys.sql · V9__add_ai_tables.sql · V10__ai_feedback_updated_at.sql · V11__ai_feedback_backfill_updated_at.sql · V12__file_sec_trace.sql |
+| `flyway_schema_history` | 12 条全部成功，最新 V12 | 以实际库为准：`SELECT COUNT(*), MAX(version), SUM(success=1) FROM flyway_schema_history` ⚠️ 若出现 `success=0` 的残留记录，先 `flyway repair` 再重跑（本机曾卡在这里） |
 
 ## 三、本轮新增能力 ↔ 代码位置
 
