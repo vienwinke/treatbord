@@ -36,8 +36,14 @@ public class FileRecord {
 
     private Long uploaderId;
 
-    /** 内容安全状态（mediaCheckAsync 回填），0=待检 1=通过 2=违规 */
+    /** 内容安全状态（mediaCheckAsync 回调回填），0=待检 1=通过 2=违规 */
     private Integer secStatus;
+
+    /** mediaCheckAsync 返回的 trace_id：回调靠它定位到具体文件（见 WxMessagePushService） */
+    private String secTraceId;
+
+    /** 内容安全结果回填时间 */
+    private LocalDateTime secCheckedAt;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

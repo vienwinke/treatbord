@@ -62,6 +62,8 @@ treatbord:
     appid: ${WX_APPID:}
     secret: ${WX_SECRET:}
     code2session-url: https://api.weixin.qq.com/sns/jscode2session
+    # 消息推送 Token：生产必填，否则内容安全结果无法回填（回调会被 503 拒收）
+    message-push-token: ${WX_MSG_PUSH_TOKEN:}
   security:
     # 部署在 Nginx 后：只有来自这些网段的 X-Forwarded-For 才被采信（否则限流会把所有用户当成同一 IP）
     trusted-proxies: ${TRUSTED_PROXIES:172.16.0.0/12}

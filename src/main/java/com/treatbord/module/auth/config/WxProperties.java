@@ -20,4 +20,11 @@ public class WxProperties {
     private String secret;
 
     private String code2sessionUrl;
+
+    /**
+     * 微信「消息推送」配置里填的 Token，用于校验回调签名（明文模式）。
+     * 为空时 /wx/message-push 一律拒收（fail-closed）——
+     * 绝不能因为没配 Token 就放出一个匿名可写库的回调入口。
+     */
+    private String messagePushToken;
 }

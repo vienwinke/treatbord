@@ -148,7 +148,7 @@ private static final Map<TaskStatus, Set<TaskStatus>> TRANSITIONS = Map.of(
 
 ```
 用户输入 → msgSecCheck（文本，同步拦截 risky） 
-        → mediaCheckAsync（图片，异步 + trace_id 回查）
+        → mediaCheckAsync（图片，异步；结果由微信消息推送回调 /wx/message-push 回填）
         → 违规处置（拦截/下架/申诉）+ fail-open 降级
 ```
 
@@ -165,7 +165,8 @@ private static final Map<TaskStatus, Set<TaskStatus>> TRANSITIONS = Map.of(
 ### 6. 数据一致性与兜底
 
 - **结算快照**：`task_claim.reward` 在接取时固化，防止发布者改价影响已接取者
-- **定时任务兜底**（5 类）：任务过期、接取超时、**审核超时自动通过**、内容安全回查、对账扫描
+- **定时任务兜底**（4 类）：任务过期、接取超时、**审核超时自动通过**、对账扫描
+  （内容安全结果由微信消息推送回调回填，不走轮询定时任务）
 - 全部走 CAS 更新，**幂等可重跑**
 
 ### 7. 配置治理：拒绝"带默认密钥上线"

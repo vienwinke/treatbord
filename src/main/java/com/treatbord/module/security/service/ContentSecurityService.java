@@ -3,6 +3,7 @@ package com.treatbord.module.security.service;
 import com.treatbord.common.BusinessException;
 import com.treatbord.common.ResultCode;
 import com.treatbord.module.config.service.AppConfigService;
+import com.treatbord.module.file.mapper.FileRecordMapper;
 import com.treatbord.module.user.entity.User;
 import com.treatbord.module.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,8 @@ import java.util.Map;
  *
  * <ul>
  *   <li><b>文本</b>：{@code wxa/msg_sec_check}（同步，suggest=risky 直接拦截）</li>
- *   <li><b>图片</b>：{@code wxa/media_check_async}（异步，返回 trace_id 供回查）</li>
+ *   <li><b>图片</b>：{@code wxa/media_check_async}（异步，返回 trace_id；
+ *       结果由微信消息推送回调回填，见 {@link WxMessagePushService}）</li>
  * </ul>
  *
  * <p>开关：{@code content.security.enabled}（app_config）→ 缺省回落 yml
@@ -39,6 +41,7 @@ public class ContentSecurityService {
 
     private final AppConfigService appConfigService;
     private final WxAccessTokenService accessTokenService;
+    private final FileRecordMapper fileRecordMapper;
     private final UserMapper userMapper;
     private final RestClient.Builder restClientBuilder;
     private final Environment env;
@@ -101,7 +104,10 @@ public class ContentSecurityService {
     }
 
     /**
-     * 图片内容安全检测（异步提交）：结果由定时任务回查/回调回填。
+     * 图片内容安全检测（异步提交）：结果由微信消息推送回调回填（{@link WxMessagePushService}）。
+     *
+     * <p>提交成功必须把 trace_id 落库 —— 那是回调定位文件的唯一线索。
+     * 此前只打日志，导致 sec_status 永远停在"待检测"，闭环实际是开环。
      *
      * @param fileId   文件 id（日志用）
      * @param mediaUrl 图片公网 HTTPS 地址（本地存储无公网地址时自动跳过）
@@ -133,7 +139,14 @@ public class ContentSecurityService {
                     .body(Map.class);
 
             if (resp != null && "0".equals(String.valueOf(resp.get("errcode")))) {
-                log.info("[CONTENT-SEC] 图片检测已提交 fileId={} traceId={}", fileId, resp.get("trace_id"));
+                Object traceId = resp.get("trace_id");
+                if (traceId != null && !String.valueOf(traceId).isBlank()) {
+                    // ★ 落库：回调（WxMessagePushService）靠它把结果写回这张图
+                    fileRecordMapper.bindSecTraceId(fileId, String.valueOf(traceId));
+                } else {
+                    log.warn("[CONTENT-SEC] 微信未返回 trace_id，该图片将无法回填结果 fileId={}", fileId);
+                }
+                log.info("[CONTENT-SEC] 图片检测已提交 fileId={} traceId={}", fileId, traceId);
             } else {
                 degrade("image", "图片检测提交失败", null);
             }

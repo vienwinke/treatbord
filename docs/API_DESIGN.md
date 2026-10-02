@@ -423,7 +423,7 @@
 | 任务过期扫描 | 每分钟 | `claim_deadline` 已过仍 OPEN → EXPIRED（无接取）；`deadline` 已过 IN_PROGRESS → EXPIRED |
 | 接取超时扫描 | 每分钟 | `review_deadline`… 接取后 72h 未提交（app_config: claim.timeout.hours）→ claim CANCELLED + 扣信用分 |
 | 审核超时扫描 | 每分钟 | SUBMITTED 后 48h 未审核（app_config: review.timeout.hours + auto.approve.enabled）→ 自动 APPROVED + 通知 |
-| 内容安全回查 | 每 5 分钟 | 异步检测结果回填（mediaCheckAsync 回调/轮询）|
+| 内容安全结果回填 | 微信推送即到 | `POST /wx/message-push`（验签后回填 `file.sec_status`，见 `WxMessagePushService`）|
 | 对账扫描 | 每小时 | claimed_count 与 claim 行数不符、状态异常 → 告警（audit_log 记录）|
 
 > 所有定时任务：单实例 `@Scheduled`；多实例 Redisson 分布式锁防重入；时间以数据库 `NOW()` 为准。

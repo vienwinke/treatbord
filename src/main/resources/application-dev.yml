@@ -56,6 +56,9 @@ treatbord:
     appid: ${WX_APPID:}
     secret: ${WX_SECRET:}
     code2session-url: https://api.weixin.qq.com/sns/jscode2session
+    # 消息推送 Token（微信后台「开发管理 → 消息推送」里填的同一个值）；
+    # 为空时 /wx/message-push 一律 503 拒收（fail-closed）
+    message-push-token: ${WX_MSG_PUSH_TOKEN:}
   security:
     # 可信代理网段（CIDR，逗号分隔）；开发直连，不信任任何代理头（防伪造 XFF 绕过限流）
     trusted-proxies: ${TRUSTED_PROXIES:}

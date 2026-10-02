@@ -48,6 +48,8 @@ treatbord:
       ttl-seconds: 1800
   wx:
     enabled: false
+    # 回调验签用的测试 Token（测试里据此自己算签名）
+    message-push-token: test-msg-push-token
   security:
     trusted-proxies: ${TRUSTED_PROXIES:}
     password-pepper: ${PASSWORD_PEPPER:test-pepper}
