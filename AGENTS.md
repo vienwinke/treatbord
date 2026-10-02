@@ -8,7 +8,7 @@
 
 ## 2. MVP 范围
 
-**做**：用户登录、任务发布/列表/详情、接取/取消、提交凭证、发布者审核、互评、站内通知、举报、内容安全检测、管理端（内容处置/封禁）。
+**做**：用户登录、任务发布/列表/详情、接取/取消、提交凭证、发布者审核、互评、站内通知、举报、内容安全检测、管理端（内容处置/封禁）、AI 问答（自然语言查平台数据：NL2SQL + 知识库 RAG）。
 
 **不做**（预留不实现）：真实支付打款（保留 reward 与结算状态位）、短信验证、第三方登录、设备指纹风控、WebSocket 实时推送。
 
@@ -19,12 +19,13 @@
 - MyBatis-Plus ORM（分页插件，禁止 `${}` 拼接）
 - 微信登录：wx.login → code2session → 签发 JWT
 - 补充：spring-boot-starter-validation、springdoc-openapi、Redisson（备而不用）、Spring @Scheduled（定时任务）、logback 结构化日志
+- AI 问答：Java 侧 `module/ai`（SSE 代理 + 内部 JWT）负责鉴权与转发，链路本体由独立 Python 边车承担（NL2SQL + 知识库 RAG，见 https://github.com/vienwinke/TBagent ）
 
 ## 4. 核心领域模型
 
-用户、任务（task）、接取（claim）、提交凭证（submission）、文件（file）、通知（notification）、互评（review）、举报（report）、结算（settlement，预留）、审计日志（status_log / audit_log）。
+用户、任务（task）、接取（claim）、提交凭证（submission）、文件（file）、通知（notification）、互评（review）、举报（report）、结算（settlement，预留）、审计日志（status_log / audit_log）、AI 问答（ai_query_audit / ai_chat_session / ai_chat_message / ai_feedback / ai_prompt_version）。
 
-## 5. 数据表设计（14 张）
+## 5. 数据表设计（19 张 = 14 业务 + 5 AI）
 
 > 约定：所有表含 `id BIGINT 主键`、`create_time`、`update_time`、`deleted`（逻辑删除）。
 
@@ -42,6 +43,10 @@
 | **task_status_log / claim_status_log** | task_id/claim_id、from_status、to_status、operator_id、reason | **状态变更审计**，排查并发问题的依据，必做 |
 | **audit_log / login_log** | 关键操作（登录/接取/审核/结算/封禁）+ 登录记录 | 安全审计与后续风控基础 |
 | **app_config** | config_key(UNIQUE)、config_value | 限流阈值、审核窗口、文件上限等可运行期调整 |
+| **ai_query_audit** | trace_id、user_id、question、route、generated_sql、rewritten_sql、verdict、latency_ms、cost_yuan | AI 问答审计（V9）：**一次问答一行，只增不改** |
+| **ai_chat_session / ai_chat_message** | external_id(UNIQUE)、user_id、title、updated_at / session_id、role、content、payload | 多轮会话持久化（V9~V11）。**`external_id` 是 L2 契约里的字符串 session_id**，表内关联一律用 BIGINT 主键，绝不混用 |
+| **ai_feedback** | message_id、rating(1/-1)、comment、updated_at | 满意度（V9~V11）。`updated_at > created_at` 说明该评价被改过，用于灰度评估 |
+| **ai_prompt_version** | version、content | 提示词版本，随响应回传 `prompt_version` |
 
 ## 6. 状态机
 
@@ -67,6 +72,7 @@
 | 互评 | `POST /api/reviews` |
 | 举报 | `POST /api/reports` |
 | 管理 | `/api/admin/*`（内容处置、封禁、统计、审计日志查询，独立鉴权 role=ADMIN） |
+| AI 问答 | `POST /api/ai/chat`（SSE 流式）、`POST /api/ai/ask`、`GET /api/ai/sessions`、`GET /api/ai/sessions/{id}/messages`、`DELETE /api/ai/sessions/{id}`、`POST /api/ai/feedback` |
 | 资料 | `PUT /api/users/me`（修改昵称，1-30 字符，含内容安全检测） |
 
 > **权威来源**：数据表 DDL 见 `src/main/resources/db/migration/` 与 `docs/DB_DESIGN.md`；

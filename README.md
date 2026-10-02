@@ -40,6 +40,7 @@ Treatbord 是一个面向微信小程序的任务接取平台。用户可以发�
 | 审核 | 发布者审核凭证（通过/驳回 + 备注）|
 | 互动 | 互评（1-5 星）、举报、站内通知（已读/全部已读）|
 | 合规 | 用户协议、隐私政策 |
+| AI 问答 | 自然语言问数据（流式回答 + 表格 + 图表 + 引用）；问句不含 user_id，身份在 Java 侧完成 |
 
 ### 管理端
 
@@ -75,6 +76,21 @@ Treatbord 是一个面向微信小程序的任务接取平台。用户可以发�
                                     ┌────────────────────┐
                                     │ 对象存储（本地/OSS） │
                                     └────────────────────┘
+```
+
+**AI 问答链路（跨进程）**
+
+```
+小程序 pages/ai-chat
+  │ SSE（wx.connectSocket，或 chunked 分片自行切分）
+  ▼
+module/ai 接入层（Java）：内部 JWT + 逐帧转发
+  │ SSE
+  ▼
+agent 边车（Python · FastAPI · /v1/ai/*）—— 独立进程/独立仓库
+  │ 只读 SQL（三层护栏：sqlglot 静态校验 → 只读沙箱 → EXPLAIN 限额）
+  ▼
+MySQL 14 张业务表（最小权限只读账号）
 ```
 
 **分层说明**
@@ -170,6 +186,15 @@ StartupValidator.afterPropertiesSet() {
 → 对象存储（本地/OSS，接口抽象，零业务改造切换）
 ```
 > 实测：伪装成 jpg 的 exe 文件被拒绝（4001），6MB 文件被拒绝（4002）。
+
+### 9. 把平台数据接成自然语言入口（AI 边车）
+
+`module/ai` 把小程序问句转发给独立的 Python 边车（[TBagent](https://github.com/vienwinke/TBagent)），由它完成「意图路由 → NL2SQL / 知识库 RAG → 出表 + 出图 + 引用」：
+
+- **身份不外包**：上行只有 `{session_id, question, client_msg_id}`，**不含 `user_id`**；openid → user_id / role 全在 Java 侧完成，边车只认内部 JWT（HS256 算法锁定、`aud=ai-sidecar`、有效期 ≤5 分钟）
+- **吊销即时生效**：签发内部 JWT 时**沿用调用方当前会话的 `jti`**，登出/封禁/注销写 `token:blacklist:<jti>`，边车查的是同一个键 → **「踢人下线」对 AI 问答同样生效**（不是等 5 分钟过期）
+- **只读硬约束**：边车用最小权限只读账号 + `SET SESSION TRANSACTION READ ONLY` + `max_execution_time`；所有 SQL 必须穿过唯一出口做行级隔离重写，普通用户拿不到 SQL 明文（只收到 `has_sql:true`）
+- **流式与诚实降级**：SSE 逐帧转发（`meta → scope → route → sql → table → chart → delta → citations → guard → done`）；端到端 8s 预算耗尽时给 `error + done.timeout`，而不是 500 或假装成功
 
 ---
 
