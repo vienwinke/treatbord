@@ -21,9 +21,9 @@
 
 Treatbord 是一个面向微信小程序的任务接取平台。用户可以发布悬赏任务（如拍照、取快递、翻译资料），其他用户接取并在完成后提交凭证，发布者审核通过后进入结算流程。
 
-项目采用**前后端分离**架构：后端提供 RESTful API（34 个接口），前端为微信小程序原生开发（16 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
+项目采用**前后端分离**架构：后端提供 RESTful API（34 个接口），前端为微信小程序原生开发（17 个页面），并按上架标准实现了**越权防护、内容安全检测、隐私合规**等要求。
 
-**规模**：后端 116 个 Java 文件 / 7.1k 行 · 34 个接口 · 14 张表 · 7 份产品文档 · 小程序 16 个页面 · 93 个自动化测试用例
+**规模**：后端 116 个 Java 文件 / 7.1k 行 · 34 个接口 · 14 张表 · 7 份产品文档 · 小程序 17 个页面 · 93 个自动化测试用例
 
 ---
 
@@ -51,7 +51,7 @@ Treatbord 是一个面向微信小程序的任务接取平台。用户可以发�
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    微信小程序（16 页面）                        │
+│                    微信小程序（17 页面）                        │
 │   任务大厅 · 发布 · 详情 · 我的 · 提交凭证 · 审核 · 通知 · 管理   │
 └───────────────────────────┬──────────────────────────────────┘
                             │ HTTPS + JWT (Bearer)
@@ -182,7 +182,7 @@ StartupValidator.afterPropertiesSet() {
 | 构建 | Maven | 3.9 |
 | ORM | MyBatis-Plus | 3.5.12 |
 | 数据库 | MySQL | 8.4 (utf8mb4 / Asia/Shanghai) |
-| 数据库迁移 | Flyway | V1~V8 |
+| 数据库迁移 | Flyway | V1~V11 |
 | 缓存 / 限流 | Redis | 8.0 |
 | 认证 | jjwt (JWT HS256) | 0.12.6 |
 | 密码 | spring-security-crypto (BCrypt) | — |
@@ -203,11 +203,11 @@ JDK 21 · Maven 3.9+ · MySQL 8 · Redis · 微信开发者工具
 ### 1. 初始化数据库
 
 ```bash
-# 只需建库；建表/索引/种子数据由 Flyway 在应用启动时自动迁移（V1~V8）
+# 只需建库；建表/索引/种子数据由 Flyway 在应用启动时自动迁移（V1~V11）
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS treatbord DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 ```
 
-> **单一真相源**：DDL 与种子数据的唯一权威来源是 `src/main/resources/db/migration/`（Flyway V1~V8）。
+> **单一真相源**：DDL 与种子数据的唯一权威来源是 `src/main/resources/db/migration/`（Flyway V1~V11）。
 > 历史上手工维护的 `database/schema.sql` 已删除，避免与迁移脚本漂移。
 
 ### 2. 配置环境变量
@@ -263,8 +263,8 @@ treatbord/
 │       └── schedule/        # 定时任务
 ├── src/main/resources/
 │   ├── application*.yml     # 多环境配置
-│   └── db/migration/        # Flyway 迁移脚本 V1~V8
-├── miniprogram/             # 微信小程序（16 页面）
+│   └── db/migration/        # Flyway 迁移脚本 V1~V11
+├── miniprogram/             # 微信小程序（17 页面）
 └── docs/                    # 设计文档（8 份）
 ```
 

@@ -134,8 +134,8 @@ treatbord/
 │   └── module/<业务>/        ← auth user task submission review ...
 ├── src/main/resources/
 │   ├── application*.yml      ← 多环境配置
-│   └── db/migration/         ← Flyway V1~V8
-└── miniprogram/              ← 微信小程序（15 个页面）
+│   └── db/migration/         ← Flyway V1~V11
+└── miniprogram/              ← 微信小程序（17 个页面）
 ```
 
 ---
